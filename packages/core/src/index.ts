@@ -5,5 +5,5 @@
  * Orchestrates dev server, browser, and inspection lifecycle.
  */
 
-export { DesignPortPlugin } from './plugin.js';
+export { DesignPortPlugin, type PluginState, type PluginEvents } from './plugin.js';
 export { createConfig, type DesignPortConfig } from './config.js';

@@ -1,5 +1,6 @@
 /**
  * WebSocket client for browser-to-terminal communication.
+ * Handles reconnection on page reload and hot-module replacement.
  */
 
 type MessageHandler = (message: unknown) => void;
@@ -9,24 +10,37 @@ export class WebSocketClient {
   private url: string;
   private handlers = new Map<string, Set<MessageHandler>>();
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
+  private maxReconnectAttempts = 10; // Increased for HMR scenarios
+  private reconnectDelay = 500; // Faster initial reconnect
+  private intentionalClose = false;
+  private visibilityHandler: (() => void) | null = null;
 
   constructor(url: string) {
     this.url = url;
+    this.setupVisibilityHandler();
   }
 
   /**
    * Connect to the WebSocket server.
    */
   connect(): Promise<void> {
+    // Reset intentional close flag
+    this.intentionalClose = false;
+
     return new Promise((resolve, reject) => {
       try {
+        // Close existing socket if any
+        if (this.socket) {
+          this.socket.onclose = null;
+          this.socket.close();
+        }
+
         this.socket = new WebSocket(this.url);
 
         this.socket.onopen = () => {
           this.reconnectAttempts = 0;
           this.send({ type: 'ready' });
+          console.log('[DesignPort] Connected to terminal');
           resolve();
         };
 
@@ -39,13 +53,18 @@ export class WebSocketClient {
           }
         };
 
-        this.socket.onclose = () => {
-          this.handleDisconnect();
+        this.socket.onclose = (event) => {
+          // Don't reconnect if intentionally closed
+          if (!this.intentionalClose) {
+            this.handleDisconnect(event.wasClean);
+          }
         };
 
-        this.socket.onerror = (error) => {
-          console.error('[DesignPort] WebSocket error:', error);
-          reject(error);
+        this.socket.onerror = () => {
+          // Error will trigger onclose, handle reconnect there
+          if (this.reconnectAttempts === 0) {
+            reject(new Error('WebSocket connection failed'));
+          }
         };
       } catch (error) {
         reject(error);
@@ -83,6 +102,7 @@ export class WebSocketClient {
    * Disconnect from the server.
    */
   disconnect(): void {
+    this.intentionalClose = true;
     if (this.socket) {
       this.socket.close();
       this.socket = null;
@@ -101,18 +121,60 @@ export class WebSocketClient {
     this.handlers.get('*')?.forEach((handler) => handler(message));
   }
 
-  private handleDisconnect(): void {
+  private handleDisconnect(wasClean: boolean): void {
+    this.socket = null;
+
+    // For clean closes during HMR, reconnect immediately
+    const baseDelay = wasClean ? 100 : this.reconnectDelay;
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-      console.log(`[DesignPort] Reconnecting in ${delay}ms...`);
+      // Exponential backoff with jitter to avoid thundering herd
+      const delay = baseDelay * Math.pow(1.5, this.reconnectAttempts - 1) + Math.random() * 100;
+      console.log(`[DesignPort] Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+
       setTimeout(() => {
         this.connect().catch(() => {
-          // Will retry via handleDisconnect
+          // Error handling triggers another reconnect via onclose
         });
       }, delay);
     } else {
-      console.error('[DesignPort] Max reconnection attempts reached');
+      console.error('[DesignPort] Max reconnection attempts reached. Refresh page to reconnect.');
+      this.emit('max-retries', {});
+    }
+  }
+
+  /**
+   * Handle page visibility changes to reconnect when tab becomes visible.
+   */
+  private setupVisibilityHandler(): void {
+    this.visibilityHandler = () => {
+      if (document.visibilityState === 'visible' && !this.isConnected()) {
+        console.log('[DesignPort] Tab visible, attempting reconnect...');
+        this.reconnectAttempts = 0; // Reset attempts when tab becomes visible
+        this.connect().catch(() => {
+          // Will retry via handleDisconnect
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  /**
+   * Clean up event listeners.
+   */
+  destroy(): void {
+    this.intentionalClose = true;
+
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
     }
   }
 }
