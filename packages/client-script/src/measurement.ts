@@ -396,81 +396,144 @@ function parseTailwindClasses(classList: string[]): TailwindClassInfo[] {
 }
 
 function getComponentName(element: Element): string | undefined {
-  // Try React (multiple fiber key formats for different React versions)
-  const reactKeys = Object.keys(element).filter(
-    (k) => k.startsWith('__reactFiber$') ||
-           k.startsWith('__reactInternalInstance$') ||
-           k.startsWith('__reactProps$')
-  );
-
-  for (const key of reactKeys) {
-    if (key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$')) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let fiber = (element as any)[key];
-      while (fiber) {
-        const type = fiber.type;
-        if (type) {
-          const name = type.displayName || type.name;
-          if (name && typeof name === 'string' && !name.startsWith('_')) {
-            return name;
-          }
+  // Method 1: Try React DevTools global hook (most reliable)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reactHook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (reactHook?.renderers) {
+    for (const [, renderer] of reactHook.renderers) {
+      if (renderer.findFiberByHostInstance) {
+        const fiber = renderer.findFiberByHostInstance(element);
+        if (fiber) {
+          const name = extractReactComponentName(fiber);
+          if (name) return name;
         }
-        fiber = fiber.return;
       }
     }
   }
 
-  // Try Vue 3
+  // Method 2: Direct fiber property access (fallback for React)
+  const reactKeys = Object.keys(element).filter(
+    (k) => k.startsWith('__reactFiber$') ||
+           k.startsWith('__reactInternalInstance$')
+  );
+
+  for (const key of reactKeys) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fiber = (element as any)[key];
+    while (fiber) {
+      const type = fiber.type;
+      if (type && typeof type !== 'string') {
+        const name = type.displayName || type.name;
+        if (name && typeof name === 'string' && !name.startsWith('_')) {
+          return name;
+        }
+      }
+      fiber = fiber.return;
+    }
+  }
+
+  // Method 3: Vue 3
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vue3 = (element as any).__vueParentComponent;
   if (vue3?.type?.name) {
     return vue3.type.name;
   }
 
-  // Try Vue 2
+  // Method 4: Vue 2
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vue2 = (element as any).__vue__;
   if (vue2) {
     return vue2.$options?.name || vue2.$options?._componentTag;
   }
 
-  // Try Svelte (check for $$)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Method 5: Svelte
   const svelteKeys = Object.keys(element).filter(k => k.startsWith('__svelte'));
   if (svelteKeys.length > 0) {
-    // Svelte doesn't expose component names easily, return generic marker
+    // Try to get constructor name
+    for (const key of svelteKeys) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const val = (element as any)[key];
+      if (val?.constructor?.name && val.constructor.name !== 'Object') {
+        return val.constructor.name;
+      }
+    }
     return 'SvelteComponent';
+  }
+
+  // Fallback: Check data attributes
+  const dataComponent = element.getAttribute('data-component') ||
+                        element.getAttribute('data-testid') ||
+                        element.getAttribute('data-name');
+  if (dataComponent) {
+    // Extract component name from test ID patterns like "Button-submit"
+    const match = dataComponent.match(/^([A-Z][a-zA-Z]+)/);
+    if (match?.[1]) return match[1];
   }
 
   return undefined;
 }
 
+/**
+ * Extract React component name from a fiber.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractReactComponentName(fiber: any): string | undefined {
+  while (fiber) {
+    const type = fiber.type;
+    if (type && typeof type !== 'string') {
+      const name = type.displayName || type.name;
+      if (name && typeof name === 'string' && !name.startsWith('_')) {
+        return name;
+      }
+    }
+    fiber = fiber.return;
+  }
+  return undefined;
+}
+
 function getSourceLocation(element: Element): SourceLocation | undefined {
-  // Try React _debugSource (available in development builds)
+  // Method 1: Try React DevTools global hook first
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reactHook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (reactHook?.renderers) {
+    for (const [, renderer] of reactHook.renderers) {
+      if (renderer.findFiberByHostInstance) {
+        const fiber = renderer.findFiberByHostInstance(element);
+        if (fiber) {
+          const source = extractReactDebugSource(fiber);
+          if (source) return source;
+        }
+      }
+    }
+  }
+
+  // Method 2: Try React _debugSource via direct fiber access
   const fiberKey = Object.keys(element).find(
     (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$')
   );
 
   if (fiberKey) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let fiber = (element as any)[fiberKey];
-    while (fiber) {
-      const source = fiber._debugSource;
-      if (source?.fileName) {
-        const result: SourceLocation = {
-          file: source.fileName,
-          line: source.lineNumber || 1,
-        };
-        if (source.columnNumber != null) {
-          result.column = source.columnNumber;
-        }
-        return result;
-      }
-      fiber = fiber.return;
-    }
+    const fiber = (element as any)[fiberKey];
+    const source = extractReactDebugSource(fiber);
+    if (source) return source;
   }
 
-  // Check for data-source attribute (some dev tools add this)
+  // Method 3: Try Vue 3 __file
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vue3 = (element as any).__vueParentComponent;
+  if (vue3?.type?.__file) {
+    return { file: vue3.type.__file, line: 1 };
+  }
+
+  // Method 4: Try Vue 2 __file
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vue2 = (element as any).__vue__;
+  if (vue2?.$options?.__file) {
+    return { file: vue2.$options.__file, line: 1 };
+  }
+
+  // Method 5: Check for data-source attribute (some dev tools add this)
   const sourceAttr = element.getAttribute('data-source');
   if (sourceAttr) {
     const [file, line, column] = sourceAttr.split(':');
@@ -486,6 +549,36 @@ function getSourceLocation(element: Element): SourceLocation | undefined {
     }
   }
 
+  // Method 6: Check for React dev tools source annotations
+  const sourceAnnotation = element.getAttribute('data-reactsource') ||
+                           element.getAttribute('data-source-file');
+  if (sourceAnnotation) {
+    return { file: sourceAnnotation, line: 1 };
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract debug source from React fiber.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractReactDebugSource(startFiber: any): SourceLocation | undefined {
+  let fiber = startFiber;
+  while (fiber) {
+    const source = fiber._debugSource;
+    if (source?.fileName) {
+      const result: SourceLocation = {
+        file: source.fileName,
+        line: source.lineNumber || 1,
+      };
+      if (source.columnNumber != null) {
+        result.column = source.columnNumber;
+      }
+      return result;
+    }
+    fiber = fiber.return;
+  }
   return undefined;
 }
 

@@ -9,3 +9,8 @@ export { ElementPicker } from './element-picker.js';
 export { MeasurementOverlay } from './overlay.js';
 export { WebSocketClient } from './websocket-client.js';
 export { measureElement, type ElementMeasurement } from './measurement.js';
+export {
+  SourceMapLoader,
+  getSourceMapLoader,
+  type OriginalLocation,
+} from './source-map-loader.js';
