@@ -88,7 +88,9 @@ export class TokenCache {
    * Start watching config files for changes.
    */
   startWatching(onInvalidate?: () => void): void {
-    this.onInvalidate = onInvalidate;
+    if (onInvalidate) {
+      this.onInvalidate = onInvalidate;
+    }
     this.stopWatching(); // Clear any existing watchers
 
     const filesToWatch = [

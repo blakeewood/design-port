@@ -34,8 +34,9 @@ class DesignPortClient {
   }
 
   private setupMessageHandlers(): void {
-    this.ws.on('inspect-mode', (msg: { enabled: boolean }) => {
-      if (msg.enabled) {
+    this.ws.on('inspect-mode', (msg) => {
+      const data = msg as { enabled: boolean };
+      if (data.enabled) {
         this.picker.enable((measurement) => {
           this.ws.send({
             type: 'element-selected',
@@ -47,8 +48,9 @@ class DesignPortClient {
       }
     });
 
-    this.ws.on('highlight-element', (msg: { selector: string }) => {
-      this.picker.highlight(msg.selector);
+    this.ws.on('highlight-element', (msg) => {
+      const data = msg as { selector: string };
+      this.picker.highlight(data.selector);
     });
 
     this.ws.on('clear-highlight', () => {

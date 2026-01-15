@@ -48,11 +48,11 @@ export class ViteAdapter extends BaseDevServerAdapter {
     return ['npx', 'vite', '--port', String(this.getDefaultPort())];
   }
 
-  getDefaultPort(): number {
+  override getDefaultPort(): number {
     return 5173;
   }
 
-  getDevServerUrl(port: number): string {
+  override getDevServerUrl(port: number): string {
     return `http://localhost:${port}`;
   }
 }

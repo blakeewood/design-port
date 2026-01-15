@@ -2,9 +2,8 @@
  * CSS custom properties (variables) extractor.
  */
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { glob } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join, extname } from 'node:path';
 
 export interface CSSVarTokens {
   /** Variable name to resolved value */
@@ -13,11 +12,11 @@ export interface CSSVarTokens {
   sources: Map<string, string>;
 }
 
-const CSS_GLOB_PATTERNS = [
-  'src/**/*.css',
-  'styles/**/*.css',
-  'app/**/*.css',
-  '*.css',
+const CSS_DIRECTORIES = [
+  'src',
+  'styles',
+  'app',
+  '.',
 ];
 
 export class CSSVarsParser {
@@ -59,22 +58,47 @@ export class CSSVarsParser {
   private async findCSSFiles(): Promise<string[]> {
     const files: string[] = [];
 
-    for (const pattern of CSS_GLOB_PATTERNS) {
-      try {
-        // Node.js 22+ has built-in glob
-        const matches = await glob(pattern, { cwd: this.projectPath });
-        for await (const match of matches) {
-          if (typeof match === 'string') {
-            files.push(match);
-          }
-        }
-      } catch {
-        // Glob pattern didn't match or glob not available
-        // Fallback: manually check common directories
-      }
+    for (const dir of CSS_DIRECTORIES) {
+      await this.findCSSFilesInDir(join(this.projectPath, dir), files, dir);
     }
 
     return [...new Set(files)];
+  }
+
+  private async findCSSFilesInDir(
+    dirPath: string,
+    files: string[],
+    relativePath: string,
+    depth = 0
+  ): Promise<void> {
+    // Limit recursion depth to avoid traversing too deep
+    if (depth > 5) return;
+
+    try {
+      const entries = await readdir(dirPath);
+
+      for (const entry of entries) {
+        // Skip node_modules and hidden directories
+        if (entry.startsWith('.') || entry === 'node_modules') continue;
+
+        const fullPath = join(dirPath, entry);
+        const relPath = relativePath === '.' ? entry : join(relativePath, entry);
+
+        try {
+          const stats = await stat(fullPath);
+
+          if (stats.isDirectory()) {
+            await this.findCSSFilesInDir(fullPath, files, relPath, depth + 1);
+          } else if (stats.isFile() && extname(entry).toLowerCase() === '.css') {
+            files.push(relPath);
+          }
+        } catch {
+          // Skip files/directories we can't stat
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
   }
 
   private extractVariables(

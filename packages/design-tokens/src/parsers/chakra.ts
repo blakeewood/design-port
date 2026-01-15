@@ -2,7 +2,7 @@
  * Chakra UI theme parser.
  */
 
-import { createJiti } from 'jiti';
+import createJiti from 'jiti';
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -78,7 +78,7 @@ export class ChakraParser {
     }
 
     try {
-      const jiti = createJiti(this.projectPath);
+      const jiti = createJiti(this.projectPath, { interopDefault: true });
       const themeModule = jiti(themePath) as { default?: ChakraTheme } | ChakraTheme;
       const theme = 'default' in themeModule ? themeModule.default : themeModule;
 

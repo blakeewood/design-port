@@ -47,15 +47,21 @@ export async function detectFramework(
   };
 
   const framework = detectFrameworkFromDeps(allDeps);
-  const buildTool = await detectBuildTool(projectPath, allDeps);
+  const buildTool = detectBuildTool(allDeps);
   const packageManager = await detectPackageManager(projectPath);
 
-  return {
+  const result: FrameworkInfo = {
     framework,
     buildTool,
     packageManager,
-    configFile: await findConfigFile(projectPath, buildTool),
   };
+
+  const configFile = await findConfigFile(projectPath, buildTool);
+  if (configFile) {
+    result.configFile = configFile;
+  }
+
+  return result;
 }
 
 function detectFrameworkFromDeps(deps: Record<string, string>): Framework {
@@ -65,10 +71,7 @@ function detectFrameworkFromDeps(deps: Record<string, string>): Framework {
   return 'vanilla';
 }
 
-async function detectBuildTool(
-  projectPath: string,
-  deps: Record<string, string>
-): Promise<BuildTool> {
+function detectBuildTool(deps: Record<string, string>): BuildTool {
   // Check for Next.js
   if ('next' in deps) return 'nextjs';
 

@@ -2,8 +2,8 @@
  * Tailwind CSS configuration parser.
  */
 
-import { createJiti } from 'jiti';
-import { readFile, access } from 'node:fs/promises';
+import createJiti from 'jiti';
+import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface TailwindTokens {
@@ -73,7 +73,7 @@ export class TailwindParser {
     }
 
     try {
-      const jiti = createJiti(this.projectPath);
+      const jiti = createJiti(this.projectPath, { interopDefault: true });
       const config = jiti(configPath) as TailwindConfig;
 
       return this.extractTokens(config);

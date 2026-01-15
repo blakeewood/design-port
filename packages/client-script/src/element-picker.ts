@@ -69,7 +69,8 @@ export class ElementPicker {
     try {
       const element = document.querySelector(selector);
       if (element) {
-        this.overlay.show(element);
+        const componentName = this.getComponentName(element);
+        this.overlay.show(element, componentName);
       }
     } catch {
       // Invalid selector
@@ -104,8 +105,58 @@ export class ElementPicker {
     const element = this.getElementFromPoint(e.clientX, e.clientY);
     if (element && element !== this.hoveredElement) {
       this.hoveredElement = element;
-      this.overlay.show(element);
+      // Get component name for display in overlay
+      const componentName = this.getComponentName(element);
+      this.overlay.show(element, componentName);
     }
+  }
+
+  /**
+   * Extract React/Vue/Svelte component name from an element.
+   */
+  private getComponentName(element: Element): string | undefined {
+    // Try React (multiple fiber key formats for different React versions)
+    const reactKeys = Object.keys(element).filter(
+      (k) => k.startsWith('__reactFiber$') ||
+             k.startsWith('__reactInternalInstance$')
+    );
+
+    for (const key of reactKeys) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let fiber = (element as any)[key];
+      while (fiber) {
+        const type = fiber.type;
+        if (type) {
+          const name = type.displayName || type.name;
+          if (name && typeof name === 'string' && !name.startsWith('_')) {
+            return name;
+          }
+        }
+        fiber = fiber.return;
+      }
+    }
+
+    // Try Vue 3
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vue3 = (element as any).__vueParentComponent;
+    if (vue3?.type?.name) {
+      return vue3.type.name;
+    }
+
+    // Try Vue 2
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vue2 = (element as any).__vue__;
+    if (vue2) {
+      return vue2.$options?.name || vue2.$options?._componentTag;
+    }
+
+    // Try Svelte
+    const svelteKeys = Object.keys(element).filter(k => k.startsWith('__svelte'));
+    if (svelteKeys.length > 0) {
+      return 'SvelteComponent';
+    }
+
+    return undefined;
   }
 
   private onClick(e: MouseEvent): void {

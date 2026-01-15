@@ -39,11 +39,14 @@ export class SourceMapper {
       return null;
     }
 
-    return {
+    const result: SourceLocation = {
       file: original.source,
       line: original.line ?? 1,
-      column: original.column ?? undefined,
     };
+    if (original.column != null) {
+      result.column = original.column;
+    }
+    return result;
   }
 
   /**

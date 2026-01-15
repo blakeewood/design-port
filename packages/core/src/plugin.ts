@@ -198,7 +198,6 @@ export class DesignPortPlugin {
       status: 'idle',
       browserConnected: false,
       inspectMode: false,
-      devServerUrl: undefined,
     });
 
     if (errors.length > 0) {

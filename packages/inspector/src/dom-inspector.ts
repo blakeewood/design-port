@@ -93,10 +93,11 @@ export class DOMInspector {
         break;
       }
 
-      const parent = current.parentElement;
+      const parent: Element | null = current.parentElement;
       if (parent) {
+        const currentTagName = current.tagName;
         const siblings = Array.from(parent.children).filter(
-          (child) => child.tagName === current!.tagName
+          (child: Element) => child.tagName === currentTagName
         );
         if (siblings.length > 1) {
           const index = siblings.indexOf(current) + 1;
