@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@design-port/core": ["packages/core/src"],
+      "@design-port/server-manager": ["packages/server-manager/src"],
+      "@design-port/browser-bridge": ["packages/browser-bridge/src"],
+      "@design-port/inspector": ["packages/inspector/src"],
+      "@design-port/client-script": ["packages/client-script/src"],
+      "@design-port/terminal-ui": ["packages/terminal-ui/src"],
+      "@design-port/design-tokens": ["packages/design-tokens/src"]
+    }
+  },
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/server-manager" },
+    { "path": "packages/browser-bridge" },
+    { "path": "packages/inspector" },
+    { "path": "packages/client-script" },
+    { "path": "packages/terminal-ui" },
+    { "path": "packages/design-tokens" }
+  ],
+  "include": [],
+  "exclude": ["node_modules", "dist"]
+}
