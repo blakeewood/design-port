@@ -6,4 +6,19 @@
  */
 
 export { DesignPortPlugin, type PluginState, type PluginEvents } from './plugin.js';
-export { createConfig, type DesignPortConfig } from './config.js';
+export {
+  createConfig,
+  createConfigFromProject,
+  loadConfig,
+  type DesignPortConfig,
+} from './config.js';
+export {
+  DesignPortError,
+  DevServerError,
+  BrowserLaunchError,
+  ConnectionError,
+  FrameworkDetectionError,
+  ConfigurationError,
+  formatError,
+  wrapError,
+} from './errors.js';
