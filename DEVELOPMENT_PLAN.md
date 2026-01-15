@@ -514,6 +514,67 @@ For Tailwind specifically, parse class names to understand token usage:
 
 ---
 
+### Phase 7: Non-Web Framework Adapters (Future)
+
+**Goal:** Extend DesignPort to support mobile and native application frameworks.
+
+While the MVP focuses on web-based frameworks with browser-based dev servers, the plugin architecture is designed to support additional platforms as future adapters. Three priority candidates for post-MVP development are **Flutter**, **React Native**, and **SwiftUI**. Each presents unique challenges around live preview and design token mapping, but follows the same extensible adapter pattern established in Phase 1.
+
+#### Flutter Adapter
+
+Enable visual design editing for Flutter applications by connecting to Flutter's widget tree inspection capabilities. Rather than a browser-based preview, the adapter communicates with a running Flutter emulator or physical device, capturing widget hierarchies and computed layouts.
+
+**Key implementation details:**
+- Connect to Flutter DevTools protocol for widget inspection
+- Map `ThemeData` and `ColorScheme` objects to design tokens
+- Resolve Material Design spacing values (e.g., `EdgeInsets`)
+- Reverse-map compiled Dart code to source locations
+- Handle non-DOM widget tree structure
+
+#### React Native Adapter
+
+Connect to the React Native debugger to inspect component trees and style information from Android/iOS simulators.
+
+**Key implementation details:**
+- Integrate with React Native debugger WebSocket protocol
+- Resolve design tokens from `StyleSheet` definitions
+- Extract theme provider values
+- Capture platform-specific measurements (dp, pt)
+- Map components to source via Hermes/JSC debugging
+
+#### SwiftUI Adapter
+
+Extend support to native iOS/macOS development by connecting to Xcode's preview system and runtime inspection APIs.
+
+**Key implementation details:**
+- Connect to Xcode preview system or running simulator
+- Map SwiftUI view hierarchies to source locations
+- Extract `@State` and `@Environment` values
+- Resolve custom color schemes and spacing systems
+- Handle declarative view modifiers
+
+#### Architecture Note
+
+All adapters leverage the core plugin infrastructure:
+- MCP server for Claude Code communication
+- Terminal formatter for measurement display
+- Design token resolver (extended for platform themes)
+- Component mapping engine
+
+Each adapter implements platform-specific:
+- Communication layer (DevTools protocol, debugger, Xcode)
+- Design system parser (ThemeData, StyleSheet, SwiftUI themes)
+- Source mapping strategy
+
+#### Deliverables
+- Flutter adapter with emulator/device connection
+- React Native adapter with simulator inspection
+- SwiftUI adapter with Xcode preview integration
+- Documentation for contributing new platform adapters
+- At least one community-contributed adapter example
+
+---
+
 ## Technical Deep Dives
 
 ### Dev Server Script Injection
