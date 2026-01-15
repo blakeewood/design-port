@@ -2,14 +2,9 @@
   "name": "design-port",
   "version": "0.1.0",
   "description": "Visual UI design inspector that spawns a browser, lets you click elements, and displays measurements, design tokens, and component info in the terminal",
-  "skills": [
-    {
-      "name": "design-port-inspect",
-      "description": "Start DesignPort visual inspector to analyze UI elements, measurements, and design tokens",
-      "trigger": "design-port",
-      "type": "command"
-    }
-  ],
+  "author": {
+    "name": "blakeewood"
+  },
   "commands": [
     {
       "name": "design-port",
