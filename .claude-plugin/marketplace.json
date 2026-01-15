@@ -1,0 +1,13 @@
+{
+  "name": "design-port",
+  "owner": {
+    "name": "blakeewood"
+  },
+  "plugins": [
+    {
+      "name": "design-port",
+      "source": "./packages/core",
+      "description": "Visual UI design inspector that spawns a browser, lets you click elements, and displays measurements, design tokens, and component info in the terminal"
+    }
+  ]
+}
