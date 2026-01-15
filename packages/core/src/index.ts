@@ -1,0 +1,24 @@
+/**
+ * @design-port/core
+ *
+ * Main entry point for the DesignPort Claude Code plugin.
+ * Orchestrates dev server, browser, and inspection lifecycle.
+ */
+
+export { DesignPortPlugin, type PluginState, type PluginEvents } from './plugin.js';
+export {
+  createConfig,
+  createConfigFromProject,
+  loadConfig,
+  type DesignPortConfig,
+} from './config.js';
+export {
+  DesignPortError,
+  DevServerError,
+  BrowserLaunchError,
+  ConnectionError,
+  FrameworkDetectionError,
+  ConfigurationError,
+  formatError,
+  wrapError,
+} from './errors.js';

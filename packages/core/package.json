@@ -1,0 +1,43 @@
+{
+  "name": "@design-port/core",
+  "version": "0.1.0",
+  "description": "Core plugin entry point and orchestration for DesignPort",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "design-port": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "import": "./dist/cli.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@design-port/server-manager": "workspace:*",
+    "@design-port/browser-bridge": "workspace:*",
+    "@design-port/inspector": "workspace:*",
+    "@design-port/terminal-ui": "workspace:*",
+    "@design-port/design-tokens": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "files": ["dist"],
+  "license": "MIT"
+}
