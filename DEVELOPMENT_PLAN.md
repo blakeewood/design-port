@@ -57,11 +57,22 @@ design-port/
 │   │   │   └── websocket-client.ts
 │   │   └── package.json
 │   │
-│   └── terminal-ui/             # Terminal output formatting
+│   ├── terminal-ui/             # Terminal output formatting
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── formatter.ts     # Measurement data formatting
+│   │   │   └── status.ts        # Status indicator management
+│   │   └── package.json
+│   │
+│   └── design-tokens/           # Design system parsing and token resolution
 │       ├── src/
 │       │   ├── index.ts
-│       │   ├── formatter.ts     # Measurement data formatting
-│       │   └── status.ts        # Status indicator management
+│       │   ├── parsers/
+│       │   │   ├── tailwind.ts  # Tailwind config parser
+│       │   │   ├── chakra.ts    # Chakra theme parser
+│       │   │   └── css-vars.ts  # CSS custom properties extractor
+│       │   ├── resolver.ts      # Maps values to token names
+│       │   └── cache.ts         # Token cache for fast lookups
 │       └── package.json
 │
 ├── examples/                    # Example projects for testing
@@ -216,20 +227,24 @@ design-port/
 - Group styles by category (typography, spacing, colors, etc.)
 
 **3.4 Terminal Formatter (`terminal-ui`)**
-- Format selection data for terminal display:
+- Format selection data for terminal display with design token context:
   ```
   ┌─ Selected Element ─────────────────────────────────
   │ Component: Button (src/components/Button.tsx:24)
-  │ Tag: <button class="btn btn-primary">
+  │ Tag: <button class="px-4 py-2 bg-blue-500 text-white">
   ├─ Dimensions ──────────────────────────────────────
   │ Size: 120px × 40px
-  │ Padding: 8px 16px
+  │ Padding: 8px 16px (Tailwind: py-2 px-4)
   │ Margin: 0px
   ├─ Typography ──────────────────────────────────────
   │ Font: Inter, 14px, weight 500
-  │ Color: #ffffff
+  │ Color: #ffffff (Tailwind: text-white)
   ├─ Background ──────────────────────────────────────
-  │ Color: #2563eb (var(--primary-600))
+  │ Color: #3b82f6 (--primary-500 / Tailwind: bg-blue-500)
+  ├─ Design Tokens Used ──────────────────────────────
+  │ spacing.4 → 1rem (16px)
+  │ spacing.2 → 0.5rem (8px)
+  │ colors.blue.500 → #3b82f6
   └───────────────────────────────────────────────────
   ```
 
@@ -237,6 +252,155 @@ design-port/
 - Click any element in browser to see measurements in terminal
 - Visual overlay shows box model during hover
 - Computed styles extracted and formatted
+
+---
+
+### Phase 3.5: Design Token Integration
+
+**Goal:** Parse project design systems and map computed values to semantic tokens.
+
+This phase is critical for making the plugin genuinely useful. When a user selects an element with `class="px-4 py-2 bg-blue-500"`, Claude needs to understand what tokens are being used, not just the computed pixel values.
+
+#### Tasks
+
+**3.5.1 Design System Detection**
+- During plugin startup, detect design system in use:
+  - Tailwind: presence of `tailwind.config.js` / `tailwind.config.ts`
+  - Chakra UI: `@chakra-ui/react` in dependencies + theme file
+  - CSS Custom Properties: scan for `:root` or `[data-theme]` definitions
+  - Styled Components / Emotion themes: detect theme provider patterns
+- Support multiple systems simultaneously (e.g., Tailwind + CSS vars)
+
+**3.5.2 Tailwind Config Parser (`design-tokens/parsers/tailwind.ts`)**
+```typescript
+interface TailwindTokens {
+  colors: Record<string, string | Record<string, string>>;
+  spacing: Record<string, string>;
+  fontSize: Record<string, string | [string, { lineHeight: string }]>;
+  fontWeight: Record<string, string>;
+  borderRadius: Record<string, string>;
+  // ... other theme keys
+}
+
+async function parseTailwindConfig(projectPath: string): Promise<TailwindTokens> {
+  // 1. Find tailwind.config.{js,ts,mjs,cjs}
+  // 2. Use esbuild to bundle + evaluate the config
+  // 3. Merge with Tailwind's default theme
+  // 4. Resolve theme() references
+  // 5. Return flattened token map
+}
+```
+
+**Implementation approach:**
+- Use `jiti` or `esbuild` to evaluate TypeScript/ESM configs
+- Handle `tailwind.config.ts` with TypeScript imports
+- Merge user config with `tailwindcss/defaultTheme`
+- Flatten nested color objects (e.g., `blue.500` → `#3b82f6`)
+
+**3.5.3 Chakra Theme Parser (`design-tokens/parsers/chakra.ts`)**
+```typescript
+interface ChakraTokens {
+  colors: Record<string, string | Record<string, string>>;
+  space: Record<string, string>;
+  fontSizes: Record<string, string>;
+  // ... other theme keys
+}
+
+async function parseChakraTheme(projectPath: string): Promise<ChakraTokens> {
+  // 1. Find theme.ts or theme/index.ts
+  // 2. Look for extendTheme() calls
+  // 3. Merge with @chakra-ui/theme defaults
+  // 4. Return flattened token map
+}
+```
+
+**3.5.4 CSS Custom Properties Extractor (`design-tokens/parsers/css-vars.ts`)**
+```typescript
+interface CSSVarTokens {
+  variables: Map<string, string>;  // --color-primary → #2563eb
+  sources: Map<string, string>;    // --color-primary → src/styles/variables.css:12
+}
+
+async function extractCSSVariables(projectPath: string): Promise<CSSVarTokens> {
+  // 1. Glob for *.css files in src/, styles/, etc.
+  // 2. Parse CSS and extract :root, [data-theme], html selectors
+  // 3. Collect all --custom-property definitions
+  // 4. Track source file and line for each variable
+}
+```
+
+**3.5.5 Token Resolution Engine (`design-tokens/resolver.ts`)**
+
+The resolver maps computed CSS values back to design tokens:
+
+```typescript
+interface TokenResolver {
+  // Given a computed value, find matching tokens
+  resolveColor(hex: string): TokenMatch[];
+  resolveSpacing(px: number): TokenMatch[];
+  resolveFontSize(px: number): TokenMatch[];
+
+  // Given element classes, extract token usage
+  parseClassList(classes: string[]): ClassTokenMapping;
+}
+
+interface TokenMatch {
+  system: 'tailwind' | 'chakra' | 'css-var' | 'custom';
+  token: string;           // e.g., 'blue-500', 'spacing.4', '--primary'
+  path: string;            // e.g., 'colors.blue.500'
+  value: string;           // e.g., '#3b82f6'
+  confidence: number;      // 0-1, for fuzzy color matching
+}
+
+interface ClassTokenMapping {
+  class: string;           // e.g., 'px-4'
+  property: string;        // e.g., 'padding-left', 'padding-right'
+  token: string;           // e.g., 'spacing.4'
+  value: string;           // e.g., '1rem'
+}
+```
+
+**Color matching strategy:**
+- Exact hex match first
+- If no exact match, find nearest color in LAB color space
+- Report confidence score for fuzzy matches
+- Handle color format variations (hex, rgb, hsl)
+
+**3.5.6 Token Cache (`design-tokens/cache.ts`)**
+- Parse design tokens once at plugin startup
+- Watch config files for changes (invalidate cache on save)
+- In-memory lookup tables for O(1) resolution
+- Color values indexed by hex for fast reverse lookup
+
+**3.5.7 Class Name Parsing**
+
+For Tailwind specifically, parse class names to understand token usage:
+
+```typescript
+// Input: "px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium"
+// Output:
+[
+  { class: 'px-4', property: 'padding-inline', token: 'spacing.4', value: '1rem' },
+  { class: 'py-2', property: 'padding-block', token: 'spacing.2', value: '0.5rem' },
+  { class: 'bg-blue-500', property: 'background-color', token: 'colors.blue.500', value: '#3b82f6' },
+  { class: 'text-white', property: 'color', token: 'colors.white', value: '#ffffff' },
+  { class: 'font-medium', property: 'font-weight', token: 'fontWeight.medium', value: '500' },
+]
+```
+
+**Handling complex Tailwind patterns:**
+- Arbitrary values: `bg-[#1a1a1a]` → no token, literal value
+- Responsive prefixes: `md:px-6` → conditional token
+- State variants: `hover:bg-blue-600` → state-dependent token
+- Negative values: `-mt-4` → negative spacing token
+
+#### Deliverables
+- Tailwind config parsed and cached at startup
+- Chakra theme parsed and cached at startup
+- CSS custom properties extracted from project styles
+- Token resolver maps computed values → semantic tokens
+- Class name parser understands Tailwind utility classes
+- Terminal output shows both computed values AND token names
 
 ---
 
@@ -464,6 +628,12 @@ function extractDesignTokens(element: Element): Map<string, string> {
 | Hot reload breaks WebSocket | Auto-reconnect with exponential backoff |
 | Framework detection false positives | Allow manual override via config |
 | Large DOM trees slow inspection | Debounce hover events; optimize traversal |
+| Tailwind config uses dynamic values | Evaluate config at runtime with jiti; warn if resolution fails |
+| Custom Tailwind plugins add classes | Parse plugin output where possible; fallback to raw class display |
+| Chakra theme not in standard location | Check common patterns; allow config override for theme path |
+| CSS variables use calc() or references | Resolve computed values; show both expression and result |
+| Color matching ambiguous (similar colors) | Report confidence score; show top 3 matches for low confidence |
+| Design system not detected | Graceful degradation to raw values; prompt user to configure |
 
 ---
 
@@ -474,6 +644,11 @@ function extractDesignTokens(element: Element): Map<string, string> {
 - Style extraction and formatting
 - Message protocol serialization
 - Source map parsing
+- Tailwind config parsing (default theme, custom theme, TypeScript config)
+- Chakra theme parsing (extendTheme, custom tokens)
+- CSS variable extraction from stylesheets
+- Token resolution (exact match, fuzzy color match)
+- Tailwind class name parsing (utilities, variants, arbitrary values)
 
 ### Integration Tests
 - Dev server lifecycle (start, stop, restart)
@@ -494,6 +669,12 @@ function extractDesignTokens(element: Element): Map<string, string> {
 - [ ] Clean shutdown on Ctrl+C
 - [ ] Error message when Chrome not found
 - [ ] Error message when port in use
+- [ ] Tailwind classes show token names (e.g., "Tailwind: bg-blue-500")
+- [ ] Custom Tailwind theme colors resolved correctly
+- [ ] CSS custom properties show variable names
+- [ ] Chakra components show theme tokens
+- [ ] Fuzzy color match shows confidence indicator
+- [ ] Design token cache updates when config file changes
 
 ---
 
@@ -505,9 +686,17 @@ function extractDesignTokens(element: Element): Map<string, string> {
   "ws": "^8.x",
   "puppeteer-core": "^22.x",
   "source-map": "^0.7.x",
-  "chalk": "^5.x"
+  "chalk": "^5.x",
+  "jiti": "^1.x",
+  "culori": "^4.x",
+  "@anthropic-ai/sdk": "^0.x"
 }
 ```
+
+**Design Token Dependencies:**
+- `jiti`: Evaluate TypeScript/ESM config files (tailwind.config.ts, theme.ts)
+- `culori`: Color space conversions for fuzzy color matching (LAB distance)
+- `@anthropic-ai/sdk`: MCP server integration
 
 ### Development Dependencies
 ```json
@@ -522,20 +711,49 @@ function extractDesignTokens(element: Element): Map<string, string> {
 
 ---
 
-## Open Questions
+## Design Decisions
 
-1. **Claude Code integration point:** How does the plugin surface data to Claude? Options:
-   - Write to stdout for Claude to read
-   - MCP (Model Context Protocol) tool registration
-   - Shared file/IPC mechanism
+### 1. Claude Code Integration: MCP Server Pattern
 
-2. **Browser window management:** Should we support:
-   - Headless mode for CI/testing?
-   - Multiple browser windows for multi-component comparison?
+The plugin will expose its capabilities via **MCP (Model Context Protocol)** server registration. This enables:
 
-3. **Design system integration:** How to detect and validate against design systems like Tailwind, Chakra, etc.?
+- Claude Code to discover and invoke inspection tools programmatically
+- Structured data exchange (not just stdout parsing)
+- Bidirectional communication for Claude-initiated inspections
+- Clean integration with Claude Code's existing MCP infrastructure
 
-4. **State persistence:** Should inspection history be saved for reference?
+**MCP Tools Exposed:**
+```typescript
+// Tool definitions the plugin registers
+{
+  "design-port/inspect-element": {
+    description: "Get measurements and design tokens for selected element",
+    returns: ElementInspectionResult
+  },
+  "design-port/get-design-tokens": {
+    description: "List all design tokens in the project",
+    returns: DesignTokenMap
+  },
+  "design-port/highlight-element": {
+    description: "Highlight an element by selector in the browser",
+    params: { selector: string }
+  }
+}
+```
+
+### 2. Browser Window Management: GUI-First MVP
+
+- **Headless mode:** Deferred to post-MVP. The core value is visual inspection, which requires a visible browser.
+- **Multiple windows:** Not in scope for MVP. Single browser window sufficient for initial use cases.
+- **Future consideration:** Terminal-based browser rendering (e.g., via Carbonyl) is interesting but not a priority.
+
+### 3. Design System Integration: Core Feature
+
+Design token awareness is critical for the plugin to be genuinely useful. See **Phase 3.5: Design Token Integration** for full implementation details.
+
+### 4. State Persistence: Deferred
+
+Inspection history persistence is not required for MVP. The terminal scroll buffer provides sufficient history for immediate use.
 
 ---
 
