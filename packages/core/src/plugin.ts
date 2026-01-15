@@ -8,7 +8,12 @@ import {
   detectFramework,
   DevServerManager,
   ViteAdapter,
+  CRAAdapter,
+  SvelteAdapter,
+  NextJSAdapter,
+  StaticAdapter,
   type FrameworkInfo,
+  type DevServerAdapter,
 } from '@design-port/server-manager';
 import {
   BrowserBridge,
@@ -271,20 +276,9 @@ export class DesignPortPlugin {
   }
 
   private async startDevServer(framework: FrameworkInfo): Promise<string> {
-    // Select appropriate adapter based on detected framework
-    let adapter;
-
-    switch (framework.buildTool) {
-      case 'vite':
-        adapter = new ViteAdapter();
-        break;
-      case 'nextjs':
-        // TODO: Add Next.js adapter
-        adapter = new ViteAdapter(); // Fallback for now
-        break;
-      default:
-        adapter = new ViteAdapter();
-    }
+    // Select appropriate adapter based on detected framework/build tool
+    const adapter = this.selectAdapter(framework);
+    this.log(`Using ${adapter.name} adapter`);
 
     const port = this.config.devServerPort || adapter.getDefaultPort?.() || 3000;
     this.devServerManager = new DevServerManager(adapter, this.config.projectPath, port);
@@ -297,6 +291,33 @@ export class DesignPortPlugin {
     }
 
     return await this.devServerManager.start();
+  }
+
+  /**
+   * Select the appropriate adapter based on framework detection.
+   */
+  private selectAdapter(framework: FrameworkInfo): DevServerAdapter {
+    // Check build tool first (more specific)
+    switch (framework.buildTool) {
+      case 'nextjs':
+        return new NextJSAdapter();
+      case 'cra':
+        return new CRAAdapter();
+      case 'vite':
+        // Vite could be used with multiple frameworks
+        if (framework.framework === 'svelte') {
+          return new SvelteAdapter();
+        }
+        return new ViteAdapter();
+      case 'webpack':
+        // Webpack-based projects without CRA
+        return new ViteAdapter(); // Fallback to Vite CLI
+      case 'unknown':
+        // Check if it's a static HTML project
+        return new StaticAdapter();
+      default:
+        return new ViteAdapter();
+    }
   }
 
   private setupBrowserBridgeHandlers(): void {

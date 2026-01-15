@@ -276,23 +276,96 @@ function findVueComponentForElement(
 
 /**
  * Detect Svelte component from element.
+ * Supports Svelte 3, 4, and 5 patterns.
  */
 function detectSvelteComponent(element: Element): ComponentInfo | null {
-  // Svelte attaches __svelte_component and similar properties
+  // Svelte attaches various internal properties to DOM elements
   const svelteKeys = Object.keys(element).filter(k =>
-    k.startsWith('__svelte') || k.startsWith('$$')
+    k.startsWith('__svelte') ||
+    k.startsWith('$$') ||
+    k === '$capture_state' ||
+    k === '$inject_state'
   );
 
   if (svelteKeys.length === 0) return null;
 
-  // Try to extract component info
+  // Method 1: Svelte 3/4 - __svelte_component_*
+  for (const key of svelteKeys) {
+    if (key.startsWith('__svelte_component')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const component = (element as any)[key];
+      if (component) {
+        // Try to get component name from constructor
+        const name = component.constructor?.name;
+        if (name && name !== 'Object' && !name.startsWith('Proxy')) {
+          return {
+            name,
+            framework: 'svelte',
+          };
+        }
+        // Try $$self or similar
+        if (component.$$?.ctx) {
+          const componentInstance = component.$$.ctx;
+          if (componentInstance?.constructor?.name) {
+            return {
+              name: componentInstance.constructor.name,
+              framework: 'svelte',
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // Method 2: Check for __svelte internal object
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const svelteInternal = (element as any).__svelte_meta;
+  if (svelteInternal?.loc?.file) {
+    // Extract component name from file path
+    const filePath = svelteInternal.loc.file;
+    const fileName = filePath.split('/').pop()?.replace('.svelte', '');
+    if (fileName) {
+      const info: ComponentInfo = {
+        name: fileName,
+        framework: 'svelte',
+        filePath,
+      };
+      if (svelteInternal.loc.line) {
+        info.line = svelteInternal.loc.line;
+      }
+      return info;
+    }
+  }
+
+  // Method 3: Svelte 5 runes mode with $$ property
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const svelte5 = (element as any).$$;
+  if (svelte5) {
+    // Try different paths for component info
+    const candidates = [
+      svelte5.ctx?.[0]?.constructor?.name,
+      svelte5.root?.constructor?.name,
+      svelte5.component?.constructor?.name,
+    ];
+
+    for (const name of candidates) {
+      if (name && name !== 'Object' && !name.startsWith('Proxy')) {
+        return {
+          name,
+          framework: 'svelte',
+        };
+      }
+    }
+  }
+
+  // Method 4: Try to extract from any __svelte* key
   for (const key of svelteKeys) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const value = (element as any)[key];
     if (value && typeof value === 'object') {
       // Check for component constructor
       const ctor = value.constructor;
-      if (ctor && ctor.name && ctor.name !== 'Object') {
+      if (ctor && ctor.name && ctor.name !== 'Object' && !ctor.name.startsWith('Proxy')) {
         return {
           name: ctor.name,
           framework: 'svelte',
@@ -301,17 +374,19 @@ function detectSvelteComponent(element: Element): ComponentInfo | null {
     }
   }
 
-  // Check for Svelte 5's $$ property
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const svelte5 = (element as any).$$;
-  if (svelte5) {
-    // Try to get component name from the component's metadata
-    const name = svelte5.ctx?.[0]?.constructor?.name;
-    if (name && name !== 'Object') {
-      return {
-        name,
-        framework: 'svelte',
-      };
+  // Method 5: Check class name for Svelte-generated patterns
+  const classList = Array.from(element.classList);
+  const svelteClassPattern = /^svelte-[a-z0-9]+$/;
+  const hasSvelteClass = classList.some(c => svelteClassPattern.test(c));
+
+  if (hasSvelteClass) {
+    // Try to infer component from parent structure
+    const parent = element.parentElement;
+    if (parent) {
+      const parentInfo = detectSvelteComponent(parent);
+      if (parentInfo && parentInfo.name !== 'SvelteComponent') {
+        return parentInfo;
+      }
     }
   }
 
