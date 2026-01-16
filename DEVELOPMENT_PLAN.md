@@ -2,7 +2,9 @@
 
 ## Executive Summary
 
-This document outlines the implementation strategy for a Claude Code plugin that provides visual UI design feedback through a managed browser preview. The plugin enables developers to inspect, measure, and refine UI components visually while maintaining terminal-first development.
+This document outlines the implementation strategy for a Claude Code plugin that provides visual UI design feedback through a managed browser preview. The plugin enables developers to inspect, measure, and refine UI components visually using a **browser-native visual inspector** (similar to Figma Make), with the terminal serving as secondary context for Claude.
+
+**Key Philosophical Shift (Phase 6.5):** The browser overlay is the primary interface where developers see measurements and design tokens visually. The terminal mirrors this data to provide context for Claude Code, enabling natural language design refinements.
 
 ---
 
@@ -514,6 +516,313 @@ For Tailwind specifically, parse class names to understand token usage:
 
 ---
 
+### Phase 6.5: Visual Inspector Overlay (Browser-First UX)
+
+**Goal:** Transform DesignPort from a data-collection tool into a browser-native visual inspector that feels like Figma Make, where design refinement happens visually in the browser first, with the terminal as secondary context.
+
+**Why This Phase Matters:**
+
+The current approach treats the terminal as the primary interface—data gets collected, formatted, and printed to stdout. But this isn't intuitive for visual design work. Developers expect to **see measurements and tokens visually in the browser**, like they do in Figma or Chrome DevTools.
+
+The philosophical shift: **Browser overlay is primary interface. Terminal is context for Claude.**
+
+#### Current Flow vs. Target Flow
+
+**Current (Broken)**
+```
+Click element → Collect data → Print to terminal → User reads terminal → References in code change request
+```
+
+**Target (Figma Make-like)**
+```
+Click element → Visual overlay shows measurements + tokens in browser → User sees design immediately →
+Optional: Terminal mirrors data for Claude context → User refines by clicking more elements
+```
+
+#### Tasks
+
+**6.5.1 Visual Overlay Layer**
+
+Create an interactive overlay that injects into the dev server and renders **on top of the application** without interfering with the app itself.
+
+What the overlay displays on hover/select:
+```
+┌──────────────────────────────────────────┐
+│ Interactive Button                       │ ← Element name
+├──────────────────────────────────────────┤
+│ Dimensions:     120px × 40px            │
+│ Position:       absolute (bottom: 20px) │
+│                                          │
+│ Spacing:                                 │
+│   Padding:      8px 16px (py-2 px-4)   │
+│   Margin:       0px                      │
+│                                          │
+│ Design Tokens:                           │
+│   bg-blue-500 → #3b82f6                 │
+│   text-white → #ffffff                  │
+│   rounded-md → 6px                      │
+│                                          │
+│ File: src/components/Button.tsx:24      │
+│                                          │
+│ [Pick] [Copy] [Hide]                    │ ← Actions
+└──────────────────────────────────────────┘
+```
+
+**Overlay features:**
+- Hover shows element boundaries with semi-transparent box model visualization
+- Click to "lock" selection (stays visible while you inspect)
+- Shows all computed styles grouped by category (sizing, spacing, colors, typography)
+- Design token resolution inline (shows both raw value and token name)
+- Direct link to component file
+- Keyboard shortcuts (ESC to deselect, arrows to select siblings, P for pick mode)
+
+**6.5.2 Pick Mode (Selection Tool)**
+
+Implement a "pick mode" toggle (like Figma's selection tool) that:
+
+**When enabled:**
+- Cursor changes to crosshair
+- Hover over any element highlights it with dashed border
+- Click selects that element and locks the overlay
+- Visual feedback showing "picking" is active
+
+**When disabled:**
+- Normal browser interaction restored
+- Overlay disappears or becomes transparent
+
+**UI for toggling:**
+- Keyboard shortcut: `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+- Small floating button in corner with pick icon
+- Status indicator showing if pick mode is active
+
+**6.5.3 Box Model Visualization**
+
+When an element is selected, overlay shows **visual box model diagram:**
+```
+                    margin
+          ┌─────────────────────┐
+          │                     │
+          │  ┌─────────────────┐│
+          │  │     border      ││
+          │  │  ┌───────────┐  ││
+          │  │  │ padding   │  ││  ← Labeled with values
+          │  │  │ ┌───────┐ │  ││     (16px, 8px, etc.)
+          │  │  │ │content│ │  ││
+          │  │  │ └───────┘ │  ││
+          │  │  └───────────┘  ││
+          │  └─────────────────┘│
+          └─────────────────────┘
+```
+
+Each layer (content, padding, border, margin) shows:
+- Actual pixel dimensions
+- Design token reference if applicable
+- Interactive: click a dimension to copy to clipboard
+
+**6.5.4 Design Token Mapping Display**
+
+For each computed style, show the token path:
+```
+Style Property          Computed Value      Design Token           Token Value
+─────────────────────────────────────────────────────────────────────────────
+background-color        #3b82f6             --primary-500 (TW)     #3b82f6
+color                   #ffffff             --white (TW)           #ffffff
+padding                 8px 16px            py-2 px-4 (TW)         Tailwind vars
+border-radius           6px                 rounded-md (TW)        calc(0.375rem)
+font-size               14px                text-sm (TW)           0.875rem
+```
+
+**Implementation:**
+- Use the token resolver (from Phase 3.5) to identify which token produced each value
+- Show confidence level for fuzzy matches (e.g., if color is close but not exact)
+- Indicate token system (Tailwind, Chakra, CSS vars, custom)
+- Link to token definition file if known
+
+**6.5.5 Element Inspector Panel**
+
+A dockable panel in the browser (similar to Chrome DevTools) that shows:
+
+**Header:**
+- Component name / tag
+- File path + line number (clickable to open in editor)
+- Breadcrumb showing DOM hierarchy
+
+**Tabs:**
+- **Styles:** All computed styles grouped by category
+- **Layout:** Box model with interactive measurements
+- **Tokens:** Token-to-value mapping
+- **Classes:** Applied Tailwind/CSS classes with explanations
+- **Computed:** Full computed stylesheet (raw)
+
+**Optional:**
+- History of recently selected elements (click to re-select)
+- Comparison mode (select two elements, compare their measurements)
+- Copy button for measurements (e.g., "120px × 40px")
+
+**6.5.6 Terminal Output (Secondary)**
+
+Terminal output mirrors the visual selection, but optimized for Claude context:
+```
+┌─ Selected Element ─────────────────────────────────
+│ Component: Button (src/components/Button.tsx:24)
+│ Tag: <button class="px-4 py-2 bg-blue-500 text-white">
+├─ Dimensions ──────────────────────────────────────
+│ Size: 120px × 40px
+│ Padding: 8px 16px (Tailwind: py-2 px-4)
+│ Margin: 0px
+├─ Design Tokens ───────────────────────────────────
+│ colors.blue.500 → #3b82f6 (bg-blue-500)
+│ spacing.2 → 0.5rem (py-2)
+│ spacing.4 → 1rem (px-4)
+└───────────────────────────────────────────────────
+```
+
+This allows Claude Code to:
+- See what the developer selected visually
+- Understand the design context
+- Make informed code adjustments
+
+**6.5.7 Styling the Overlay**
+
+**Requirements:**
+- Doesn't interfere with app styles (CSS isolation)
+- Works with any CSS-in-JS, Tailwind, CSS modules, etc.
+- Visible in light AND dark mode apps
+- Readable at any zoom level
+
+**Implementation:**
+- Use CSS-in-JS (emotion/styled-components) with scoped styles
+- Or inject `<link>` to external CSS with !important for critical properties
+- Use high z-index (99999) to stay above everything
+- Dark semi-transparent backgrounds (#222 with 0.9 opacity) for contrast
+
+**Accessibility:**
+- All overlay elements are semantic HTML
+- Keyboard navigation (Tab, Arrow keys, Enter)
+- Screen reader friendly (aria labels for measurements, tokens)
+- High contrast text for readability
+
+**6.5.8 Performance Considerations**
+
+**Optimization strategies:**
+- Debounce hover events (100ms) to avoid excessive repaints
+- Lazy-load token resolution (only when element locked)
+- Cache measurement values until element changes
+- Minimize DOM mutations in overlay
+- Use CSS transforms for animations (GPU accelerated)
+
+**Testing:**
+- Verify overlay doesn't slow down hot reload (<200ms additional latency)
+- Test on low-end devices/slow networks
+- Measure memory usage with long inspection sessions
+
+#### UX Flow
+
+**First-Time User Journey**
+1. Developer runs: `claude /design-port`
+2. Browser opens with test app
+3. Small floating button appears in corner (or keyboard hint: "Press Ctrl+Shift+P to pick")
+4. Developer presses `Ctrl+Shift+P`
+5. Cursor changes to crosshair, elements highlight on hover
+6. Developer clicks a button → visual overlay appears with all measurements and tokens
+7. Developer can:
+   - Hover to see other elements
+   - Click to switch selection
+   - Press ESC to deselect
+   - Read measurements directly in browser
+8. **Optional:** Terminal shows same data for Claude reference
+9. Developer tells Claude: "Make that button match the input field padding"
+10. Claude updates code → hot reload → measurements update in real-time
+
+**Refinement Loop**
+```
+Visual inspection → Request change in natural language →
+Code updates → Hot reload (measurements refresh) →
+Visual inspection again → Repeat
+```
+
+#### Technical Implementation
+
+**Injection Strategy**
+
+The visual overlay must be **injected as early as possible** in the page lifecycle:
+
+**Option 1: Vite Plugin (Recommended)**
+```typescript
+// In server-manager Vite adapter
+export default function designPortOverlay(config: OverlayConfig) {
+  return {
+    name: 'design-port-overlay',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html: string) {
+        const overlayScript = `
+          <script>
+            window.__DESIGN_PORT_CONFIG__ = ${JSON.stringify(config)};
+          </script>
+          <script src="http://localhost:${config.wsPort}/__design-port-overlay.js"></script>
+        `;
+        return html.replace('<body', `<body${overlayScript}`);
+      }
+    }
+  };
+}
+```
+
+**Option 2: Dev Server Middleware**
+Intercept HTML responses and inject script before sending.
+
+**Option 3: Puppeteer (Fallback)**
+If script injection isn't available, use Puppeteer's `addScriptTag`.
+
+**Bundle Structure**
+
+Separate the overlay from the data collection:
+```
+packages/client-script/dist/
+├── overlay.js          ← Visual inspector (UI + interaction)
+├── inspector.js        ← Element selection + measurement
+├── token-resolver.js   ← Client-side token resolution
+└── bundle.js           ← Combined for fallback
+```
+
+**Client-Side State Management**
+```typescript
+// Simple state machine for overlay
+type OverlayState = 'hidden' | 'observing' | 'inspecting' | 'locked';
+
+interface InspectionState {
+  selectedElement: Element | null;
+  measurements: ElementMeasurements;
+  tokens: TokenMapping[];
+  sourceLocation: SourceLocation | null;
+  state: OverlayState;
+}
+```
+
+#### Deliverables
+- Visual overlay injection system
+- Interactive hover/select mechanism with visual feedback
+- Box model visualization with measurements
+- Design token mapping display in overlay
+- Element inspector panel (dockable)
+- Keyboard shortcuts (Ctrl+Shift+P for pick mode, ESC to deselect, etc.)
+- Terminal output mirrors visual selection
+- Performance optimized (<200ms additional latency)
+- Works with all supported frameworks (React, Vue, Svelte)
+- Dark/light mode support
+- Accessibility (keyboard nav, screen reader friendly)
+
+#### Success Criteria
+- Developer can visually inspect any element in <100ms after clicking
+- All measurements and tokens visible without terminal reference
+- Hot reload updates measurements in real-time
+- Overlay feels responsive and doesn't lag during interaction
+- Terminal output provides useful context for Claude without being primary interface
+- Developer experience feels "Figma-like" not "terminal-like"
+
+---
+
 ### Phase 7: Non-Web Framework Adapters (Future)
 
 **Goal:** Extend DesignPort to support mobile and native application frameworks.
@@ -821,17 +1130,34 @@ Inspection history persistence is not required for MVP. The terminal scroll buff
 ## Success Metrics
 
 - **Startup latency:** < 3 seconds from command to browser visible
-- **Selection latency:** < 100ms from click to terminal display
+- **Selection latency:** < 100ms from click to visual overlay display
 - **Hot reload latency:** < 500ms additional overhead vs native dev server
 - **Framework coverage:** React (Vite, Next.js, CRA), Vue (Vite), Svelte
 - **Error rate:** < 1% false positives in component detection
+- **Visual overlay latency:** < 100ms from element click to full measurements visible in browser
+- **UX feel:** "Figma-like" not "terminal-like" (browser overlay is primary interface)
 
 ---
 
 ## Next Steps
 
-1. Set up monorepo structure and tooling
-2. Implement framework detection for Vite projects
-3. Build minimal WebSocket communication layer
-4. Create basic element picker with measurement display
-5. Iterate based on real-world testing
+**Completed (Phases 1-6):**
+1. ✅ Set up monorepo structure and tooling
+2. ✅ Implement framework detection for Vite projects
+3. ✅ Build WebSocket communication layer
+4. ✅ Create element picker with measurement display
+5. ✅ Implement design token integration (Tailwind, Chakra, CSS vars)
+6. ✅ Add source code mapping (React, Vue, Svelte DevTools)
+7. ✅ Add extended framework support (CRA, Next.js, SvelteKit, static HTML)
+
+**Current Priority (Phase 6.5):**
+1. Build visual overlay layer with Figma-like UX
+2. Implement pick mode toggle (Ctrl+Shift+P)
+3. Create box model visualization in browser
+4. Add design token mapping display in overlay
+5. Build dockable inspector panel
+6. Optimize performance (<100ms selection latency)
+7. Add keyboard navigation and accessibility
+
+**Future (Phase 7):**
+- Flutter, React Native, SwiftUI adapters
