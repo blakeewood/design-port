@@ -140,14 +140,14 @@ async function main() {
     isShuttingDown = true;
 
     console.log('');
-    console.log(`  🛑 Received ${signal}, shutting down...`);
+    console.log(`  [x] Received ${signal}, shutting down...`);
 
     try {
       await plugin.stop();
-      console.log('  ✅ Cleanup complete');
+      console.log('  [*] Cleanup complete');
       process.exit(0);
     } catch (error) {
-      console.error('  ⚠️  Error during cleanup:', error instanceof Error ? error.message : error);
+      console.error('  [!] Error during cleanup:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   };
@@ -171,10 +171,10 @@ async function main() {
   try {
     await plugin.start();
 
-    console.log('  ✅ DesignPort is running');
+    console.log('  [*] DesignPort is running');
     console.log('');
-    console.log('  📌 Click elements in the browser to inspect them');
-    console.log('  📌 Press Ctrl+C to stop');
+    console.log('  > Click elements in the browser to inspect them');
+    console.log('  > Press Ctrl+C to stop');
     console.log('');
 
   } catch (error) {

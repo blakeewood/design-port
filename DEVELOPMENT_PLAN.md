@@ -953,6 +953,243 @@ interface InspectionState {
 
 ---
 
+### Phase 7.1: Dynamic Staged Selections Panel
+
+**Goal:** Create a seamless UX where browser selections appear in a dynamic terminal panel that users can review before sending context to Claude, preventing noisy spam from exploratory clicking.
+
+**The Problem with Current Flow:**
+```
+User clicks element → Data immediately printed to terminal →
+Every click = new output → Exploratory clicking spams Claude with irrelevant context
+```
+
+**Target Flow:**
+```
+User clicks element → Visual selection in browser + element appears in staged panel →
+User clicks more elements → Multiple selections accumulate in panel →
+User types message → Staged context auto-included → Clean, intentional communication
+```
+
+#### Tasks
+
+**7.1.1 Staged Selections State Manager**
+
+Create a state manager that tracks selected elements:
+```typescript
+interface StagedSelection {
+  id: string;                    // Unique ID for this selection
+  selector: string;              // CSS selector
+  summary: string;               // Short display text (e.g., "Button.primary")
+  componentName?: string;        // React/Vue component name
+  timestamp: number;             // When selected
+}
+
+interface StagedSelectionsState {
+  selections: StagedSelection[];
+  maxSelections: number;         // Default: 5
+}
+```
+
+**7.1.2 Dynamic Terminal Panel**
+
+Implement a panel that updates in place using ANSI escape codes:
+```
+[previous output scrolls normally...]
+
++-- Staged Selections (3) -----------------+
+| > Button.primary, Input#email, Card      |
++------------------------------------------+
+Type your message: _
+```
+
+**Panel behavior:**
+- Updates dynamically when browser sends selection/deselection
+- Shows comma-separated element summaries
+- Expands to show details when few items selected
+- Collapses to summary when many items
+- Clears after user submits message
+- Keyboard shortcut to clear: `Ctrl+K`
+
+**Implementation using ANSI escape codes:**
+```typescript
+class StagedSelectionsPanel {
+  private selections: StagedSelection[] = [];
+  private panelHeight: number = 3;  // Lines to reserve
+
+  // Update panel in place
+  render(stream: NodeJS.WriteStream): void {
+    if (!stream.isTTY) return;
+
+    // Move cursor up, clear lines, redraw
+    stream.write(`\x1b[${this.panelHeight}A`);  // Move up
+    stream.write('\x1b[0J');                     // Clear to end
+
+    // Draw panel
+    stream.write(this.formatPanel());
+  }
+
+  addSelection(selection: StagedSelection): void {
+    // Add to list, trigger re-render
+  }
+
+  removeSelection(id: string): void {
+    // Remove from list, trigger re-render
+  }
+
+  clear(): void {
+    // Clear all, trigger re-render
+  }
+
+  getContext(): string {
+    // Return formatted context for Claude
+  }
+}
+```
+
+**7.1.3 Browser-Terminal Sync**
+
+Update WebSocket protocol to support staging:
+```typescript
+// New message types
+type BrowserMessage =
+  | { type: 'element-staged'; payload: StagedSelection }
+  | { type: 'element-unstaged'; payload: { id: string } }
+  | { type: 'selections-cleared' }
+  | ... existing types;
+
+type TerminalMessage =
+  | { type: 'clear-staged' }
+  | { type: 'highlight-staged'; ids: string[] }
+  | ... existing types;
+```
+
+**7.1.4 Browser Multi-Select UI**
+
+Update browser overlay to support multi-selection:
+- Click to select/toggle element
+- Visual indicator showing element is "staged" (persistent highlight)
+- Badge showing selection order (1, 2, 3...)
+- Click staged element again to unstage
+- "Clear All" button in overlay
+- Keyboard: `Shift+Click` to add to selection, `Escape` to clear all
+
+**7.1.5 Context Formatting**
+
+When user submits, format staged selections as context:
+```
+[User's message here]
+
+--- Context: Selected Elements ---
+1. Button (src/components/Button.tsx:24)
+   - Size: 120px x 40px
+   - Classes: px-4 py-2 bg-blue-500 text-white
+   - Tokens: colors.blue.500, spacing.4, spacing.2
+
+2. Input#email (src/components/Form.tsx:45)
+   - Size: 320px x 44px
+   - Classes: w-full px-3 py-2 border rounded-md
+   - Tokens: spacing.3, border.gray.300
+---
+```
+
+**7.1.6 Panel Collapse/Expand Modes**
+
+Support different display densities:
+```
+// Collapsed (many selections)
++-- Staged (5) ----------------------------+
+| Button, Input, Card, Header, Footer      |
++------------------------------------------+
+
+// Expanded (few selections)
++-- Staged Selections (2) -----------------+
+| 1. Button.primary      120x40  bg-blue   |
+| 2. Input#email         320x44  border    |
++------------------------------------------+
+
+// Empty state
++-- Staged Selections ---------------------+
+| Click elements in browser to stage       |
++------------------------------------------+
+```
+
+#### Art Direction: Unicode Symbols & ASCII Art
+
+**Philosophy:** Use Unicode box-drawing characters and symbols instead of emojis. This ensures:
+- Consistent rendering across all terminals
+- Professional, technical aesthetic
+- Better monospace alignment
+- No platform-specific emoji rendering differences
+
+**Symbol Mappings:**
+```
+Status Icons:
+  Running/Success:  [*] or (+)
+  Starting/Loading: [~] or (...)
+  Error/Failed:     [!] or (x)
+  Stopped/Inactive: [-] or ( )
+  Info:             [i]
+  Warning:          [!]
+
+Mode Indicators:
+  Inspect Active:   [>]
+  Inspect Inactive: [.]
+  Pick Mode:        [^]
+  Locked:           [#]
+
+Box Drawing (already in use):
+  Corners: + or unicode (┌ ┐ └ ┘)
+  Lines:   - | or unicode (─ │)
+  Tees:    + or unicode (├ ┤ ┬ ┴)
+
+Bullets:
+  List items:  *  -  >
+  Nested:      -  .
+  Selected:    >
+
+Progress:
+  Spinner frames: | / - \
+  Bar: [====----] or [####....]
+```
+
+**Example Status Line (before):**
+```
+🔄 Server: Starting...  │  ⏹ Browser: Disconnected  │  ⏸ Inspect: OFF
+```
+
+**Example Status Line (after):**
+```
+[~] Server: Starting...  |  [-] Browser: Disconnected  |  [.] Inspect: OFF
+```
+
+**Example Panel (after):**
+```
++-- Staged Selections (2) -----------------+
+| > Button.primary      120x40  bg-blue    |
+| > Input#email         320x44  border     |
++------------------------------------------+
+```
+
+#### Deliverables
+- StagedSelectionsPanel class with ANSI-based dynamic updates
+- Browser multi-select with visual staging indicators
+- WebSocket protocol extensions for staging
+- Context formatter for Claude-friendly output
+- All terminal UI updated to use unicode symbols (no emojis)
+- Collapse/expand modes based on selection count
+- Keyboard shortcuts (Ctrl+K to clear)
+- Empty state messaging
+
+#### Success Criteria
+- Panel updates in <50ms when selection changes
+- No terminal flicker during updates
+- Works in all major terminals (iTerm, Terminal.app, Windows Terminal, VS Code)
+- Staged context is concise but informative for Claude
+- Users can explore UI without spamming terminal
+- Clear visual feedback in browser for staged vs unstaged elements
+
+---
+
 ### Phase 7: Non-Web Framework Adapters (Future)
 
 **Goal:** Extend DesignPort to support mobile and native application frameworks.

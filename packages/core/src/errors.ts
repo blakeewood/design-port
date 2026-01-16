@@ -152,18 +152,18 @@ export function formatError(error: Error): string {
   const lines: string[] = [];
 
   if (error instanceof DesignPortError) {
-    lines.push(`❌ ${error.message}`);
+    lines.push(`[!] ${error.message}`);
     if (error.action) {
       lines.push('');
-      lines.push(`💡 Suggestion: ${error.action}`);
+      lines.push(`[>] Suggestion: ${error.action}`);
     }
   } else if (error instanceof AggregateError) {
-    lines.push('❌ Multiple errors occurred:');
+    lines.push('[!] Multiple errors occurred:');
     for (const err of error.errors) {
-      lines.push(`   • ${err instanceof Error ? err.message : String(err)}`);
+      lines.push(`   - ${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
-    lines.push(`❌ ${error.message}`);
+    lines.push(`[!] ${error.message}`);
   }
 
   return lines.join('\n');
