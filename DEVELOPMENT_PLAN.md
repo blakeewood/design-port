@@ -716,6 +716,128 @@ This allows Claude Code to:
 - Test on low-end devices/slow networks
 - Measure memory usage with long inspection sessions
 
+**6.5.9 Responsive Inspection**
+
+Add responsive inspection capabilities to help developers understand how designs adapt across breakpoints.
+
+**Breakpoint Switcher UI:**
+```
+┌─────────────────────────────────────┐
+│ Viewport: [📱 Mobile] [📱 Tablet] [🖥️ Desktop] │
+│           375px      768px       1280px      │
+└─────────────────────────────────────┘
+```
+
+**Features:**
+- Toggle between common breakpoints (mobile 375px, tablet 768px, desktop 1280px)
+- Custom breakpoint input for specific widths
+- Visual indicator showing current viewport width
+- Resize browser viewport when breakpoint selected
+
+**Responsive Value Highlighting:**
+
+When measurements differ across breakpoints, show the responsive behavior:
+```
+┌─ Responsive Values ─────────────────────────────
+│ padding:     8px (mobile) → 16px (tablet) → 24px (desktop)
+│              ↑ currently viewing
+│ font-size:   14px (mobile) → 16px (desktop)
+│ gap:         12px (all breakpoints) ✓ consistent
+└─────────────────────────────────────────────────
+```
+
+**Implementation:**
+- Parse Tailwind responsive prefixes (`sm:`, `md:`, `lg:`, `xl:`)
+- Detect CSS media query breakpoints from stylesheets
+- Cache measurements at each breakpoint for comparison
+- Highlight inconsistencies (e.g., "padding changes at tablet but font-size doesn't")
+
+**Use Cases:**
+- Verify responsive behavior matches design specs
+- Spot unintended breakpoint inconsistencies
+- Understand which values are hardcoded vs responsive
+
+**6.5.10 Component-Aware Inspection**
+
+For component-based frameworks (React, Vue, Svelte), provide semantic component context beyond raw DOM inspection.
+
+**Component Identification:**
+
+When selecting an element that's part of a reusable component:
+```
+┌─ Component: Button ─────────────────────────────
+│ File: src/components/Button.tsx:24
+│
+│ Current Props:
+│   variant = "primary"
+│   size = "lg"
+│   disabled = false
+│   onClick = [function]
+│
+│ Available Variants:
+│   • primary (current)
+│   • secondary
+│   • danger
+│   • outline
+│   • ghost
+│
+│ Available Sizes:
+│   • sm
+│   • md
+│   • lg (current)
+│   • xl
+└─────────────────────────────────────────────────
+```
+
+**Features:**
+- Identify if selected element is a reusable component vs plain HTML
+- Show component file path and line number
+- Display current props/attributes passed to component
+- List available variants (parsed from component source or type definitions)
+- Show prop types when available (TypeScript interfaces)
+
+**Implementation:**
+- React: Access fiber tree via `__REACT_DEVTOOLS_GLOBAL_HOOK__` for props
+- Vue: Access component instance via `__vue__` for props/data
+- Svelte: Access component context via Svelte DevTools hooks
+- Parse TypeScript/PropTypes for variant enumeration
+- Analyze component source for variant definitions (e.g., `variant: 'primary' | 'secondary'`)
+
+**Variant Discovery:**
+```typescript
+// Parse component to find available variants
+interface ComponentVariants {
+  props: {
+    name: string;
+    type: string;
+    currentValue: unknown;
+    possibleValues?: string[];  // For union types / enums
+    defaultValue?: unknown;
+  }[];
+  filePath: string;
+  lineNumber: number;
+}
+```
+
+**Terminal Output for Claude:**
+```
+┌─ Component Context ─────────────────────────────
+│ Component: Button (src/components/Button.tsx:24)
+│ Props: variant="primary", size="lg"
+│ Variants: primary | secondary | danger | outline
+│ Sizes: sm | md | lg | xl
+│
+│ This is a reusable component. To change its appearance:
+│ - Modify props for this instance
+│ - Or edit the component definition for global changes
+└─────────────────────────────────────────────────
+```
+
+This gives Claude semantic context to make intelligent suggestions:
+- "Change this to the secondary variant" → Claude knows to update the prop
+- "Make all buttons larger" → Claude knows to edit the component definition
+- "This button should match the header button" → Claude can compare variants
+
 #### UX Flow
 
 **First-Time User Journey**
@@ -812,6 +934,11 @@ interface InspectionState {
 - Works with all supported frameworks (React, Vue, Svelte)
 - Dark/light mode support
 - Accessibility (keyboard nav, screen reader friendly)
+- Responsive breakpoint switcher (mobile/tablet/desktop)
+- Responsive value comparison across breakpoints
+- Component identification with file path and line number
+- Current props display for React/Vue/Svelte components
+- Available variants enumeration for reusable components
 
 #### Success Criteria
 - Developer can visually inspect any element in <100ms after clicking
@@ -820,6 +947,9 @@ interface InspectionState {
 - Overlay feels responsive and doesn't lag during interaction
 - Terminal output provides useful context for Claude without being primary interface
 - Developer experience feels "Figma-like" not "terminal-like"
+- Responsive values highlighted when they differ across breakpoints
+- Component props and variants visible for framework components
+- Claude receives semantic component context for intelligent code suggestions
 
 ---
 
@@ -1158,6 +1288,9 @@ Inspection history persistence is not required for MVP. The terminal scroll buff
 5. Build dockable inspector panel
 6. Optimize performance (<100ms selection latency)
 7. Add keyboard navigation and accessibility
+8. Implement responsive breakpoint switcher
+9. Add responsive value comparison highlighting
+10. Build component-aware inspection (props, variants)
 
 **Future (Phase 7):**
 - Flutter, React Native, SwiftUI adapters
