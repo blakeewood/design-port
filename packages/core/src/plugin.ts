@@ -26,9 +26,15 @@ import {
   BrowserBridge,
   ScriptServer,
   type ElementSelection,
+  type StagedElement,
 } from '@design-port/browser-bridge';
 import { TokenCache } from '@design-port/design-tokens';
-import { Formatter, StatusLine } from '@design-port/terminal-ui';
+import {
+  Formatter,
+  StatusLine,
+  StagedSelectionsManager,
+  type StagedSelection,
+} from '@design-port/terminal-ui';
 
 export interface PluginState {
   status: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
@@ -42,6 +48,9 @@ export interface PluginState {
 export interface PluginEvents {
   'state-change': [state: PluginState];
   'element-selected': [selection: ElementSelection, formatted: string];
+  'element-staged': [element: StagedElement];
+  'element-unstaged': [id: string];
+  'selections-cleared': [];
   error: [error: Error];
 }
 
@@ -60,6 +69,7 @@ export class DesignPortPlugin {
   private tokenCache: TokenCache | null = null;
   private formatter: Formatter;
   private statusLine: StatusLine;
+  private stagedSelections: StagedSelectionsManager;
 
   // Event handlers
   private eventHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -68,6 +78,7 @@ export class DesignPortPlugin {
     this.config = createConfig(userConfig);
     this.formatter = new Formatter({ colors: true });
     this.statusLine = new StatusLine();
+    this.stagedSelections = new StagedSelectionsManager();
   }
 
   /**
@@ -588,6 +599,48 @@ export class DesignPortPlugin {
       if (this.config.verbose) {
         console.error('[DesignPort]', error);
       }
+    });
+
+    // Staging event handlers (Phase 7.1)
+    this.browserBridge.on('element-staged', (element) => {
+      // Convert browser StagedElement to terminal StagedSelection
+      const selection: StagedSelection = {
+        id: element.id,
+        selector: element.selector,
+        summary: element.summary,
+        tagName: element.tagName,
+        timestamp: Date.now(),
+      };
+
+      // Conditionally assign optional properties (exactOptionalPropertyTypes)
+      if (element.componentName) {
+        selection.componentName = element.componentName;
+      }
+      if (element.dimensions) {
+        selection.dimensions = element.dimensions;
+      }
+      if (element.classes) {
+        selection.classes = element.classes;
+      }
+      if (element.sourceLocation) {
+        selection.sourceLocation = element.sourceLocation;
+      }
+
+      this.stagedSelections.add(selection);
+      this.stagedSelections.writeToTerminal();
+      this.emit('element-staged', element);
+    });
+
+    this.browserBridge.on('element-unstaged', (id) => {
+      this.stagedSelections.remove(id);
+      this.stagedSelections.writeToTerminal();
+      this.emit('element-unstaged', id);
+    });
+
+    this.browserBridge.on('selections-cleared', () => {
+      this.stagedSelections.clear();
+      this.stagedSelections.writeToTerminal();
+      this.emit('selections-cleared');
     });
   }
 

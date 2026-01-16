@@ -13,6 +13,7 @@ export type {
   ElementSelection,
   MeasurementData,
   ErrorInfo,
+  StagedElement,
   BrowserToTerminal,
   TerminalToBrowser,
 } from './protocol.js';

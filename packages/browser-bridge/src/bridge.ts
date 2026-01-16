@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events';
 import { WebSocketServer, type BrowserMessage } from './websocket-server.js';
 import { BrowserLauncher, type BrowserLauncherOptions } from './browser-launcher.js';
-import type { ElementSelection, MeasurementData } from './protocol.js';
+import type { ElementSelection, MeasurementData, StagedElement } from './protocol.js';
 
 export interface BrowserBridgeEvents {
   ready: [];
@@ -13,6 +13,10 @@ export interface BrowserBridgeEvents {
   measurement: [data: MeasurementData];
   error: [error: Error];
   disconnected: [];
+  // Staging events (Phase 7.1)
+  'element-staged': [element: StagedElement];
+  'element-unstaged': [id: string];
+  'selections-cleared': [];
 }
 
 export interface BrowserBridgeOptions extends BrowserLauncherOptions {
@@ -94,6 +98,27 @@ export class BrowserBridge extends EventEmitter<BrowserBridgeEvents> {
   }
 
   /**
+   * Enable or disable multi-select mode.
+   */
+  setMultiSelectMode(enabled: boolean): void {
+    this.wsServer.send({ type: 'set-multi-select', enabled });
+  }
+
+  /**
+   * Clear all staged selections in browser.
+   */
+  clearStaged(): void {
+    this.wsServer.send({ type: 'clear-staged' });
+  }
+
+  /**
+   * Highlight all staged elements by their IDs.
+   */
+  highlightStaged(ids: string[]): void {
+    this.wsServer.send({ type: 'highlight-staged', ids });
+  }
+
+  /**
    * Check if browser is connected.
    */
   isConnected(): boolean {
@@ -133,6 +158,16 @@ export class BrowserBridge extends EventEmitter<BrowserBridgeEvents> {
           break;
         case 'pong':
           // Heartbeat response, ignore
+          break;
+        // Staging messages (Phase 7.1)
+        case 'element-staged':
+          this.emit('element-staged', message.payload);
+          break;
+        case 'element-unstaged':
+          this.emit('element-unstaged', message.payload.id);
+          break;
+        case 'selections-cleared':
+          this.emit('selections-cleared');
           break;
       }
     });
