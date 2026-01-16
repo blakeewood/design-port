@@ -1124,32 +1124,33 @@ Support different display densities:
 **Symbol Mappings:**
 ```
 Status Icons:
-  Running/Success:  [*] or (+)
-  Starting/Loading: [~] or (...)
-  Error/Failed:     [!] or (x)
-  Stopped/Inactive: [-] or ( )
-  Info:             [i]
-  Warning:          [!]
+  Running/Success:  ✓ (checkmark)
+  Starting/Loading: ◐ (half circle)
+  Error/Failed:     ✗ (x mark)
+  Stopped/Inactive: ○ (empty circle)
+  Info:             ℹ (info)
+  Warning:          ⚠ (warning triangle)
 
 Mode Indicators:
-  Inspect Active:   [>]
-  Inspect Inactive: [.]
-  Pick Mode:        [^]
-  Locked:           [#]
+  Active/On:        ◉ (filled circle)
+  Inactive/Off:     ○ (empty circle)
+  Arrow/Action:     → (arrow)
+  Stop:             ◼ (filled square)
 
-Box Drawing (already in use):
-  Corners: + or unicode (┌ ┐ └ ┘)
-  Lines:   - | or unicode (─ │)
-  Tees:    + or unicode (├ ┤ ┬ ┴)
+Box Drawing:
+  Corners: ┌ ┐ └ ┘
+  Lines:   ─ │
+  Tees:    ├ ┤ ┬ ┴
+  Cross:   ┼
 
 Bullets:
-  List items:  *  -  >
-  Nested:      -  .
-  Selected:    >
+  List items:  •  ▸  →
+  Counter:     ▢ (count)
+  Time:        ◷ (clock)
 
 Progress:
-  Spinner frames: | / - \
-  Bar: [====----] or [####....]
+  Spinner frames: ◐ ◓ ◑ ◒
+  Bar: [████░░░░] or ▓▓▓▓░░░░
 ```
 
 **Example Status Line (before):**
@@ -1159,15 +1160,15 @@ Progress:
 
 **Example Status Line (after):**
 ```
-[~] Server: Starting...  |  [-] Browser: Disconnected  |  [.] Inspect: OFF
+◐ Server: Starting...  │  ○ Browser: Disconnected  │  ○ Inspect: OFF
 ```
 
 **Example Panel (after):**
 ```
-+-- Staged Selections (2) -----------------+
-| > Button.primary      120x40  bg-blue    |
-| > Input#email         320x44  border     |
-+------------------------------------------+
+┌── Staged Selections (2) ─────────────────┐
+│ → Button.primary      120x40  bg-blue    │
+│ → Input#email         320x44  border     │
+└──────────────────────────────────────────┘
 ```
 
 #### Deliverables
