@@ -248,35 +248,6 @@ export class DesignPortPlugin {
   }
 
   /**
-   * Get the WebSocket server port for browser communication.
-   */
-  getWebSocketPort(): number {
-    return this.browserBridge?.getWsPort() || this.config.inspectorPort || 9222;
-  }
-
-  /**
-   * Get the script server port (serves the inspector bundle).
-   */
-  getScriptServerPort(): number {
-    return this.scriptServer?.getPort() || 0;
-  }
-
-  /**
-   * Get connection info for debugging and external scripts.
-   */
-  getConnectionInfo(): {
-    wsPort: number;
-    scriptPort: number;
-    devServerUrl: string | undefined;
-  } {
-    return {
-      wsPort: this.getWebSocketPort(),
-      scriptPort: this.getScriptServerPort(),
-      devServerUrl: this.state.devServerUrl,
-    };
-  }
-
-  /**
    * Get the token cache for external access.
    */
   getTokenCache(): TokenCache | null {

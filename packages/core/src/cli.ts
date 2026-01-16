@@ -171,23 +171,10 @@ async function main() {
   try {
     await plugin.start();
 
-    // Get connection info for display
-    const connectionInfo = plugin.getConnectionInfo();
-
     console.log('  ✅ DesignPort is running');
     console.log('');
-    console.log('  🌐 Connection Info:');
-    console.log(`     Dev Server:      ${connectionInfo.devServerUrl}`);
-    console.log(`     WebSocket:       ws://localhost:${connectionInfo.wsPort}`);
-    console.log(`     Script Server:   http://localhost:${connectionInfo.scriptPort}`);
-    console.log('');
-    console.log('  📌 Usage:');
-    console.log('     • Click elements in the browser to inspect them');
-    console.log('     • Press Ctrl+Shift+P to toggle pick mode');
-    console.log('     • Press Ctrl+C to stop');
-    console.log('');
-    console.log('  💡 To inject inspector manually, add to your HTML:');
-    console.log(`     <script src="http://localhost:${connectionInfo.scriptPort}/__design-port-bundle.js"></script>`);
+    console.log('  📌 Click elements in the browser to inspect them');
+    console.log('  📌 Press Ctrl+C to stop');
     console.log('');
 
   } catch (error) {
