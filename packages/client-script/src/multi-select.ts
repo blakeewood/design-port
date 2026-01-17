@@ -242,7 +242,8 @@ export class MultiSelectManager {
       staged.componentName = componentName;
     }
 
-    const role = getImplicitRole(element);
+    // Get accessibility role (explicit attribute takes precedence)
+    const role = element.getAttribute('role') || getImplicitRole(element);
     if (role) {
       staged.role = role;
     }
