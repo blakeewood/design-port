@@ -12,7 +12,17 @@ export interface StagedElement {
   tagName: string;
   componentName?: string;
   dimensions?: { width: number; height: number };
+  boxModel?: {
+    padding: { top: number; right: number; bottom: number; left: number };
+    margin: { top: number; right: number; bottom: number; left: number };
+  };
   classes?: string[];
+  font?: {
+    family: string;
+    size: string;
+    weight: string;
+  };
+  role?: string;
   sourceLocation?: { file: string; line: number };
   element: Element;
   measurement?: ElementMeasurement;
@@ -98,6 +108,60 @@ function createSummary(el: Element, componentName?: string): string {
   return `${tag}${id}${firstClass}`;
 }
 
+/**
+ * Get implicit ARIA role based on element type.
+ */
+function getImplicitRole(el: Element): string | null {
+  const tag = el.tagName.toLowerCase();
+  const type = el.getAttribute('type')?.toLowerCase();
+
+  const roleMap: Record<string, string> = {
+    a: 'link',
+    article: 'article',
+    aside: 'complementary',
+    button: 'button',
+    dialog: 'dialog',
+    footer: 'contentinfo',
+    form: 'form',
+    h1: 'heading',
+    h2: 'heading',
+    h3: 'heading',
+    h4: 'heading',
+    h5: 'heading',
+    h6: 'heading',
+    header: 'banner',
+    img: 'img',
+    li: 'listitem',
+    main: 'main',
+    nav: 'navigation',
+    ol: 'list',
+    section: 'region',
+    select: 'combobox',
+    table: 'table',
+    textarea: 'textbox',
+    ul: 'list',
+  };
+
+  if (tag === 'input') {
+    const inputRoles: Record<string, string> = {
+      button: 'button',
+      checkbox: 'checkbox',
+      email: 'textbox',
+      number: 'spinbutton',
+      radio: 'radio',
+      range: 'slider',
+      search: 'searchbox',
+      submit: 'button',
+      tel: 'textbox',
+      text: 'textbox',
+      url: 'textbox',
+    };
+    return inputRoles[type || 'text'] || 'textbox';
+  }
+
+  return roleMap[tag] || null;
+}
+
 export class MultiSelectManager {
   private staged: Map<string, StagedElement> = new Map();
   private listeners: Set<StagedChangeListener> = new Set();
@@ -136,6 +200,10 @@ export class MultiSelectManager {
     const selector = getSelector(element);
     const componentName = getComponentName(element);
     const rect = element.getBoundingClientRect();
+    const styles = window.getComputedStyle(element);
+
+    // Helper to convert CSS values to numbers
+    const px = (val: string): number => Math.round(parseFloat(val) || 0);
 
     const staged: StagedElement = {
       id,
@@ -146,7 +214,26 @@ export class MultiSelectManager {
         width: Math.round(rect.width),
         height: Math.round(rect.height),
       },
-      classes: Array.from(element.classList).slice(0, 5),
+      boxModel: {
+        padding: {
+          top: px(styles.paddingTop),
+          right: px(styles.paddingRight),
+          bottom: px(styles.paddingBottom),
+          left: px(styles.paddingLeft),
+        },
+        margin: {
+          top: px(styles.marginTop),
+          right: px(styles.marginRight),
+          bottom: px(styles.marginBottom),
+          left: px(styles.marginLeft),
+        },
+      },
+      classes: Array.from(element.classList),
+      font: {
+        family: styles.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '') || 'inherit',
+        size: styles.fontSize,
+        weight: styles.fontWeight,
+      },
       element,
     };
 
@@ -154,6 +241,12 @@ export class MultiSelectManager {
     if (componentName) {
       staged.componentName = componentName;
     }
+
+    const role = getImplicitRole(element);
+    if (role) {
+      staged.role = role;
+    }
+
     if (measurement) {
       staged.measurement = measurement;
     }
@@ -247,16 +340,29 @@ export class MultiSelectManager {
    * Convert staged element to wire format for WebSocket.
    */
   toWireFormat(staged: StagedElement): Record<string, unknown> {
-    return {
+    const wire: Record<string, unknown> = {
       id: staged.id,
       selector: staged.selector,
       summary: staged.summary,
       tagName: staged.tagName,
-      componentName: staged.componentName,
       dimensions: staged.dimensions,
+      boxModel: staged.boxModel,
       classes: staged.classes,
-      sourceLocation: staged.sourceLocation,
+      font: staged.font,
     };
+
+    // Conditionally add optional fields
+    if (staged.componentName) {
+      wire['componentName'] = staged.componentName;
+    }
+    if (staged.role) {
+      wire['role'] = staged.role;
+    }
+    if (staged.sourceLocation) {
+      wire['sourceLocation'] = staged.sourceLocation;
+    }
+
+    return wire;
   }
 
   /**

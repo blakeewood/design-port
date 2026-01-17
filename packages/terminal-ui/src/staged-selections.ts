@@ -18,8 +18,21 @@ export interface StagedSelection {
   tagName: string;
   /** Element dimensions */
   dimensions?: { width: number; height: number };
-  /** Key CSS classes */
+  /** Box model (padding and margin) */
+  boxModel?: {
+    padding: { top: number; right: number; bottom: number; left: number };
+    margin: { top: number; right: number; bottom: number; left: number };
+  };
+  /** Element classes */
   classes?: string[];
+  /** Font information */
+  font?: {
+    family: string;
+    size: string;
+    weight: string;
+  };
+  /** Implicit ARIA role */
+  role?: string;
   /** Source file location */
   sourceLocation?: { file: string; line: number };
   /** When this element was selected */
@@ -172,12 +185,31 @@ export class StagedSelectionsManager {
 
       lines.push(`${index + 1}. ${name}${location}`);
 
+      // Dimensions
       if (sel.dimensions) {
-        lines.push(`   - Size: ${sel.dimensions.width}px x ${sel.dimensions.height}px`);
+        lines.push(`   - Dimensions: ${sel.dimensions.width}px × ${sel.dimensions.height}px`);
       }
 
+      // Box Model
+      if (sel.boxModel) {
+        const { padding, margin } = sel.boxModel;
+        lines.push(`   - Padding: top=${padding.top} right=${padding.right} bottom=${padding.bottom} left=${padding.left}`);
+        lines.push(`   - Margin: top=${margin.top} right=${margin.right} bottom=${margin.bottom} left=${margin.left}`);
+      }
+
+      // Classes
       if (sel.classes && sel.classes.length > 0) {
-        lines.push(`   - Classes: ${sel.classes.slice(0, 5).join(' ')}`);
+        lines.push(`   - Classes: ${sel.classes.join(' ')}`);
+      }
+
+      // Font
+      if (sel.font) {
+        lines.push(`   - Font: ${sel.font.family}, ${sel.font.size}, weight ${sel.font.weight}`);
+      }
+
+      // Role
+      if (sel.role) {
+        lines.push(`   - Role: ${sel.role}`);
       }
 
       lines.push('');
