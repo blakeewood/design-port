@@ -2,6 +2,8 @@
 
 Visual design editing for Claude Code: select UI components in a live browser, inspect design measurements and styles, and refine them with Claude in your terminal—all in real-time.
 
+> **New in v0.1.0:** MCP integration sends selected element context directly to Claude. Ask design questions and Claude sees exactly what you've selected.
+
 ## How it works
 
 Start DesignPort on your project, and it launches a live browser with your app running.
@@ -50,7 +52,7 @@ You should see:
 │ Dev Server:    http://localhost:5173
 │ Browser:       Connected
 │ Inspect Mode:  Active
-│ Staged:        0 elements
+│ Selected:      0 elements
 └──────────────────────────────────┘
 ```
 
@@ -73,8 +75,8 @@ A browser window opens with your app loaded. You're in **Inspect Mode**.
 
 In the browser:
 - **Click any element** to inspect it (highlighted in the browser)
-- **Shift+Click** to stage/unstage an element
-- **Ctrl+K** (or **Cmd+K** on Mac) to clear all staged selections
+- **Shift+Click** to select/deselect an element
+- **Ctrl+K** (or **Cmd+K** on Mac) to clear all selected elements
 
 Selected elements appear in the terminal under "Selected Elements" with:
 - Element name and tag
@@ -87,7 +89,7 @@ Selected elements appear in the terminal under "Selected Elements" with:
 
 ### 3. View Rich Context
 
-Staged selections show up as formatted context:
+Selected elements show up as formatted context:
 
 ```
 ┌── Selected Elements (2) ──────────────┐
@@ -114,7 +116,7 @@ In your terminal, type to Claude:
 ```
 
 Claude:
-- Sees the staged elements automatically via `@design-port:staged-selections`
+- Sees the selected elements automatically via `@design-port:selected-elements`
 - Understands exact current state (dimensions, styles, classes)
 - Suggests specific code changes
 - Recommends the file to modify
@@ -134,17 +136,17 @@ Reselect elements, ask more questions, refine until perfect.
 ### Live Browser Inspector
 
 - **Click to inspect** - Select any element on the page
-- **Staged selections** - Compare multiple elements side-by-side
+- **Selected elements** - Compare multiple elements side-by-side
 - **Rich context** - Dimensions, box model, styles, classes, accessibility
 - **Source location** - Jump to the component file in your editor
 - **Real-time updates** - See changes instantly as you edit code
 
 ### Claude Integration via MCP
 
-DesignPort uses MCP (Model Context Protocol) to expose staged selections as a resource:
+DesignPort uses MCP (Model Context Protocol) to expose selected elements as a resource:
 
 ```
-@design-port:staged-selections
+@design-port:selected-elements
 ```
 
 Claude automatically references this when you ask design questions. No need to describe elements—Claude sees them exactly as they are.
@@ -154,7 +156,7 @@ Claude automatically references this when you ask design questions. No need to d
 ```
 You: "Make the spacing consistent with the design system"
 
-Claude (sees staged elements):
+Claude (sees selected elements):
 I can see the button has padding 8px 16px, but your design tokens
 define spacing as 12px 20px. Let me update it.
 
@@ -195,50 +197,50 @@ Your design system defines it as primary-action-default.
 
 ### Compare Two Buttons
 
-1. Click first button → Shift+Click to stage
-2. Click second button → Shift+Click to stage
+1. Click first button → Shift+Click to select
+2. Click second button → Shift+Click to select
 3. Ask Claude: "Why does this button look different?"
 
-Claude sees both staged and explains the CSS differences.
+Claude sees both selected and explains the CSS differences.
 
 ### Align Form Inputs
 
-1. Stage all input fields
+1. Select all input fields
 2. Ask: "Make all inputs the same height and align them vertically"
 
 Claude analyzes all selected dimensions and suggests alignment code.
 
 ### Fix Responsive Spacing
 
-1. Stage element at desktop size
+1. Select element at desktop size
 2. Ask: "What should the padding be on mobile?"
 
 Claude references your design system and suggests responsive classes.
 
 ### Debug Layout Issues
 
-1. Stage the container and children
+1. Select the container and children
 2. Ask: "Why is this element overlapping?"
 
 Claude sees all dimensions, positions, and suggests flex/grid fixes.
 
 ## MCP (Model Context Protocol)
 
-DesignPort exposes staged selections as an MCP resource for seamless Claude integration.
+DesignPort exposes selected elements as an MCP resource for seamless Claude integration.
 
 ### How It Works
 
-1. When you stage elements, DesignPort writes formatted context to `/tmp/design-port-context-{projectHash}.txt`
+1. When you select elements, DesignPort writes formatted context to `/tmp/design-port-context-{projectHash}.txt`
 2. The MCP server reads this file on-demand
-3. Claude accesses via `@design-port:staged-selections`
+3. Claude accesses via `@design-port:selected-elements`
 4. Context auto-updates when selections change
 5. Context expires after 1 hour of inactivity (cleaned up automatically)
 
 ### Resource Details
 
-**URI:** `design-port://staged-selections`
+**URI:** `design-port://selected-elements`
 
-**Content:** Formatted staged selections including:
+**Content:** Formatted selected elements including:
 - Element selectors and component names
 - Dimensions (width, height)
 - Box model (margin, padding, border)
@@ -253,16 +255,16 @@ DesignPort exposes staged selections as an MCP resource for seamless Claude inte
 You can also manually reference the resource in your Claude messages:
 
 ```
-@design-port:staged-selections
+@design-port:selected-elements
 ```
 
-This shows all currently staged elements in full detail.
+This shows all currently selected elements in full detail.
 
 ## Architecture
 
 ### Components
 
-- **Terminal UI** - Interactive inspector and staged selections display
+- **Terminal UI** - Interactive inspector and selected elements display
 - **Browser Bridge** - WebSocket communication between browser and terminal
 - **Client Script** - Injected into browser for element inspection
 - **Dev Server Manager** - Framework detection and dev server orchestration
@@ -304,15 +306,15 @@ claude /design-port --verbose
 2. Use your browser DevTools to inspect the element tree
 3. Check for event listener conflicts
 
-### "Staged context not showing in Claude"
+### "Selected elements not showing in Claude"
 
 **Check:**
-1. You have elements staged (should show in terminal UI)
+1. You have elements selected (should show in terminal UI)
 2. You mentioned design-related questions (Claude checks resource automatically)
 3. MCP server is running (check logs: `claude /design-port --verbose`)
 
 **Manually trigger:**
-Type `@design-port:staged-selections` in your Claude message to see all context.
+Type `@design-port:selected-elements` in your Claude message to see all context.
 
 ### "Dev server won't start"
 
