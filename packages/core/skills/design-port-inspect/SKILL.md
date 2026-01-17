@@ -32,16 +32,31 @@ DesignPort is a visual inspection tool that:
 
 ## Starting the Inspector
 
-To start the DesignPort inspector, run:
+First, locate the DesignPort plugin installation and run the CLI:
 
 ```bash
+# Find the plugin directory
+DESIGN_PORT_DIR=$(find ~/.claude/plugins -name "design-port" -type d 2>/dev/null | grep -E "packages/core$" | head -1)
+
+# If not found in standard location, check marketplaces
+if [ -z "$DESIGN_PORT_DIR" ]; then
+  DESIGN_PORT_DIR=$(find ~/.claude/plugins/marketplaces -type d -name "core" 2>/dev/null | xargs -I {} dirname {} | head -1)/packages/core
+fi
+
+# Install dependencies if needed (first run only)
+if [ -d "$DESIGN_PORT_DIR" ] && [ ! -d "$DESIGN_PORT_DIR/node_modules" ]; then
+  echo "Installing DesignPort dependencies..."
+  cd "$DESIGN_PORT_DIR/../.." && npm install && npm run build
+fi
+
+# Run the inspector on the target project
 cd <project-directory>
-npx @design-port/core
+node "$DESIGN_PORT_DIR/dist/cli.js"
 ```
 
 Or with options:
 ```bash
-npx @design-port/core --port 3000 --browser chrome
+node "$DESIGN_PORT_DIR/dist/cli.js" --port 3000 --browser chrome
 ```
 
 ### CLI Options
@@ -51,6 +66,16 @@ npx @design-port/core --port 3000 --browser chrome
 - `--headless` - Run in headless mode (for automated testing)
 - `--verbose` - Enable debug logging
 - `--help` - Show help message
+
+### Development Mode
+
+If working with the DesignPort source repository directly:
+
+```bash
+cd /path/to/design-port
+pnpm install && pnpm build
+node packages/core/dist/cli.js /path/to/target/project
+```
 
 ## Framework Support
 

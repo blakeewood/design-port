@@ -2,6 +2,13 @@
  * Main plugin class that orchestrates the DesignPort workflow.
  */
 
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 import type { DesignPortConfig } from './config.js';
 import { createConfig } from './config.js';
 import {
@@ -19,9 +26,15 @@ import {
   BrowserBridge,
   ScriptServer,
   type ElementSelection,
+  type StagedElement,
 } from '@design-port/browser-bridge';
 import { TokenCache } from '@design-port/design-tokens';
-import { Formatter, StatusLine } from '@design-port/terminal-ui';
+import {
+  Formatter,
+  StatusLine,
+  StagedSelectionsManager,
+  type StagedSelection,
+} from '@design-port/terminal-ui';
 
 export interface PluginState {
   status: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
@@ -35,6 +48,9 @@ export interface PluginState {
 export interface PluginEvents {
   'state-change': [state: PluginState];
   'element-selected': [selection: ElementSelection, formatted: string];
+  'element-staged': [element: StagedElement];
+  'element-unstaged': [id: string];
+  'selections-cleared': [];
   error: [error: Error];
 }
 
@@ -53,6 +69,7 @@ export class DesignPortPlugin {
   private tokenCache: TokenCache | null = null;
   private formatter: Formatter;
   private statusLine: StatusLine;
+  private stagedSelections: StagedSelectionsManager;
 
   // Event handlers
   private eventHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -61,6 +78,7 @@ export class DesignPortPlugin {
     this.config = createConfig(userConfig);
     this.formatter = new Formatter({ colors: true });
     this.statusLine = new StatusLine();
+    this.stagedSelections = new StagedSelectionsManager();
   }
 
   /**
@@ -114,8 +132,12 @@ export class DesignPortPlugin {
         wsPort: this.config.inspectorPort || 0,
       });
 
-      // Create script server (serves the client-side inspector)
+      // Load the client script bundle
       const wsPort = await this.startWebSocketServer();
+      const clientScript = await this.loadClientScript(wsPort);
+      this.browserBridge.setClientScript(clientScript);
+
+      // Create script server (serves the client-side inspector)
       this.scriptServer = new ScriptServer({
         wsUrl: `ws://localhost:${wsPort}`,
       });
@@ -275,6 +297,232 @@ export class DesignPortPlugin {
     });
   }
 
+  /**
+   * Load the client script bundle for injection into the browser.
+   */
+  private async loadClientScript(_wsPort: number): Promise<string> {
+    try {
+      // Try to load from the client-script package
+      // Navigate from core/dist to client-script/dist
+      const bundlePath = join(__dirname, '../../browser-bridge/node_modules/@design-port/client-script/dist/bundle.js');
+      const altBundlePath = join(__dirname, '../../../client-script/dist/bundle.js');
+
+      let script: string;
+      try {
+        script = await readFile(bundlePath, 'utf-8');
+      } catch {
+        script = await readFile(altBundlePath, 'utf-8');
+      }
+
+      // Return script with placeholder intact - bridge.start() will replace it
+      return script;
+    } catch {
+      // Return fallback inline script if bundle not available
+      this.log('Client script bundle not found, using fallback');
+      return this.getFallbackClientScript();
+    }
+  }
+
+  /**
+   * Fallback inline script for when bundle is not available.
+   */
+  private getFallbackClientScript(): string {
+    return `
+(function() {
+  const WS_URL = "__DESIGN_PORT_WS_URL__";
+  let socket = null;
+  let inspectMode = false;
+  let overlay = null;
+
+  function connect() {
+    socket = new WebSocket(WS_URL);
+
+    socket.onopen = () => {
+      console.log('[DesignPort] Connected');
+      socket.send(JSON.stringify({ type: 'ready' }));
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      } catch (e) {
+        console.error('[DesignPort] Parse error:', e);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('[DesignPort] Disconnected, reconnecting...');
+      setTimeout(connect, 1000);
+    };
+
+    socket.onerror = (e) => {
+      console.error('[DesignPort] WebSocket error:', e);
+    };
+  }
+
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'ping':
+        socket.send(JSON.stringify({ type: 'pong' }));
+        break;
+      case 'inspect-mode':
+        setInspectMode(msg.enabled);
+        break;
+      case 'highlight-element':
+        highlightElement(msg.selector);
+        break;
+      case 'clear-highlight':
+        clearHighlight();
+        break;
+    }
+  }
+
+  function setInspectMode(enabled) {
+    inspectMode = enabled;
+    document.body.style.cursor = enabled ? 'crosshair' : '';
+
+    if (enabled) {
+      document.addEventListener('mousemove', onMouseMove, true);
+      document.addEventListener('click', onClick, true);
+      document.addEventListener('keydown', onKeyDown, true);
+    } else {
+      document.removeEventListener('mousemove', onMouseMove, true);
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+      clearHighlight();
+    }
+  }
+
+  function onMouseMove(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (el && !el.closest('#__design-port-overlay')) {
+      showOverlay(el);
+    }
+  }
+
+  function onClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (el && !el.closest('#__design-port-overlay')) {
+      const data = measureElement(el);
+      socket.send(JSON.stringify({ type: 'element-selected', payload: data }));
+    }
+  }
+
+  function onKeyDown(e) {
+    if (e.key === 'Escape') {
+      setInspectMode(false);
+    }
+  }
+
+  function measureElement(el) {
+    const rect = el.getBoundingClientRect();
+    const styles = getComputedStyle(el);
+    const px = (v) => parseFloat(v) || 0;
+
+    return {
+      selector: getSelector(el),
+      tagName: el.tagName.toLowerCase(),
+      classList: Array.from(el.classList),
+      id: el.id || undefined,
+      bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      boxModel: {
+        content: { width: px(styles.width), height: px(styles.height) },
+        padding: { top: px(styles.paddingTop), right: px(styles.paddingRight), bottom: px(styles.paddingBottom), left: px(styles.paddingLeft) },
+        border: { top: px(styles.borderTopWidth), right: px(styles.borderRightWidth), bottom: px(styles.borderBottomWidth), left: px(styles.borderLeftWidth) },
+        margin: { top: px(styles.marginTop), right: px(styles.marginRight), bottom: px(styles.marginBottom), left: px(styles.marginLeft) }
+      },
+      computedStyles: extractStyles(styles),
+      componentName: getComponentName(el)
+    };
+  }
+
+  function getSelector(el) {
+    if (el.id) return '#' + el.id;
+    const parts = [];
+    while (el && el !== document.body) {
+      let sel = el.tagName.toLowerCase();
+      if (el.id) { parts.unshift('#' + el.id); break; }
+      const parent = el.parentElement;
+      if (parent) {
+        const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName);
+        if (siblings.length > 1) sel += ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')';
+      }
+      parts.unshift(sel);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+
+  function extractStyles(styles) {
+    const props = ['font-family','font-size','font-weight','line-height','color','background-color','padding-top','padding-right','padding-bottom','padding-left','margin-top','margin-right','margin-bottom','margin-left','border-radius','display','gap'];
+    const result = {};
+    props.forEach(p => { if (styles.getPropertyValue(p)) result[p] = styles.getPropertyValue(p); });
+    return result;
+  }
+
+  function getComponentName(el) {
+    // React
+    const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
+    if (fiberKey) {
+      let fiber = el[fiberKey];
+      while (fiber) {
+        const name = fiber.type?.displayName || fiber.type?.name;
+        if (name) return name;
+        fiber = fiber.return;
+      }
+    }
+    // Vue
+    if (el.__vue__) return el.__vue__.$options?.name;
+    return undefined;
+  }
+
+  function showOverlay(el) {
+    clearHighlight();
+    const rect = el.getBoundingClientRect();
+    overlay = document.createElement('div');
+    overlay.id = '__design-port-overlay';
+    overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+
+    const label = document.createElement('div');
+    label.style.cssText = 'position:absolute;top:-22px;left:0;background:#3b82f6;color:#fff;padding:2px 6px;font:11px monospace;border-radius:3px;white-space:nowrap;';
+    label.textContent = Math.round(rect.width) + ' × ' + Math.round(rect.height);
+    overlay.appendChild(label);
+
+    document.body.appendChild(overlay);
+  }
+
+  function highlightElement(selector) {
+    try {
+      const el = document.querySelector(selector);
+      if (el) showOverlay(el);
+    } catch {}
+  }
+
+  function clearHighlight() {
+    if (overlay) {
+      overlay.remove();
+      overlay = null;
+    }
+  }
+
+  // Auto-connect on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', connect);
+  } else {
+    connect();
+  }
+})();
+`;
+  }
+
   private async startDevServer(framework: FrameworkInfo): Promise<string> {
     // Select appropriate adapter based on detected framework/build tool
     const adapter = this.selectAdapter(framework);
@@ -351,6 +599,48 @@ export class DesignPortPlugin {
       if (this.config.verbose) {
         console.error('[DesignPort]', error);
       }
+    });
+
+    // Staging event handlers (Phase 7.1)
+    this.browserBridge.on('element-staged', (element) => {
+      // Convert browser StagedElement to terminal StagedSelection
+      const selection: StagedSelection = {
+        id: element.id,
+        selector: element.selector,
+        summary: element.summary,
+        tagName: element.tagName,
+        timestamp: Date.now(),
+      };
+
+      // Conditionally assign optional properties (exactOptionalPropertyTypes)
+      if (element.componentName) {
+        selection.componentName = element.componentName;
+      }
+      if (element.dimensions) {
+        selection.dimensions = element.dimensions;
+      }
+      if (element.classes) {
+        selection.classes = element.classes;
+      }
+      if (element.sourceLocation) {
+        selection.sourceLocation = element.sourceLocation;
+      }
+
+      this.stagedSelections.add(selection);
+      this.stagedSelections.writeToTerminal();
+      this.emit('element-staged', element);
+    });
+
+    this.browserBridge.on('element-unstaged', (id) => {
+      this.stagedSelections.remove(id);
+      this.stagedSelections.writeToTerminal();
+      this.emit('element-unstaged', id);
+    });
+
+    this.browserBridge.on('selections-cleared', () => {
+      this.stagedSelections.clear();
+      this.stagedSelections.writeToTerminal();
+      this.emit('selections-cleared');
     });
   }
 

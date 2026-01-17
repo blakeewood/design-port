@@ -14,3 +14,9 @@ export {
   type AccessibilityInfo,
 } from './formatter.js';
 export { StatusLine, type PluginStatus } from './status.js';
+export {
+  StagedSelectionsManager,
+  stagedSelections,
+  type StagedSelection,
+  type StagedSelectionsOptions,
+} from './staged-selections.js';

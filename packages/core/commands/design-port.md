@@ -86,17 +86,50 @@ When you click an element, the terminal shows:
 
 ## Implementation
 
-To run the inspector, execute the DesignPort CLI:
+First, find the DesignPort plugin installation and run the CLI. The plugin is installed in the Claude plugins directory.
+
+### Step 1: Locate and prepare the plugin
 
 ```bash
-cd $ARGUMENTS
-npx @design-port/core
+# Find the plugin directory
+DESIGN_PORT_DIR=$(find ~/.claude/plugins -name "design-port" -type d 2>/dev/null | grep -E "packages/core$" | head -1)
+
+# If not found, try alternate location
+if [ -z "$DESIGN_PORT_DIR" ]; then
+  DESIGN_PORT_DIR=$(find ~/.claude/plugins/marketplaces -name "core" -type d 2>/dev/null | head -1)
+fi
+
+# Install dependencies if needed
+if [ -d "$DESIGN_PORT_DIR" ] && [ ! -d "$DESIGN_PORT_DIR/node_modules" ]; then
+  cd "$DESIGN_PORT_DIR/../.." && npm install
+fi
 ```
 
-Or if arguments are empty, run in the current directory:
+### Step 2: Run the inspector
 
 ```bash
-npx @design-port/core
+# Navigate to the target project
+cd $ARGUMENTS
+
+# Run the DesignPort CLI
+node "$DESIGN_PORT_DIR/dist/cli.js"
+```
+
+If `$ARGUMENTS` is empty, run in the current working directory:
+
+```bash
+node "$DESIGN_PORT_DIR/dist/cli.js"
+```
+
+### Alternative: Run from source repository
+
+If the plugin source is available locally (e.g., during development):
+
+```bash
+cd /path/to/design-port
+pnpm install
+pnpm build
+node packages/core/dist/cli.js /path/to/target/project
 ```
 
 The CLI will:

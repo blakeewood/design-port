@@ -54,6 +54,28 @@ export interface ErrorInfo {
   stack?: string;
 }
 
+/** Staged element selection for multi-select mode */
+export interface StagedElement {
+  /** Unique ID for this selection */
+  id: string;
+  /** CSS selector for the element */
+  selector: string;
+  /** Short display text (e.g., "Button.primary") */
+  summary: string;
+  /** Element tag name */
+  tagName: string;
+  /** React/Vue/Svelte component name if detected */
+  componentName?: string;
+  /** Element dimensions */
+  dimensions?: { width: number; height: number };
+  /** Key CSS classes (first few) */
+  classes?: string[];
+  /** Source file location */
+  sourceLocation?: { file: string; line: number };
+  /** Full element selection data */
+  element?: ElementSelection;
+}
+
 export interface Protocol {
   /** Messages from browser to terminal */
   browser: BrowserToTerminal;
@@ -66,10 +88,18 @@ export type BrowserToTerminal =
   | { type: 'pong' }
   | { type: 'element-selected'; payload: ElementSelection }
   | { type: 'measurement'; payload: MeasurementData }
-  | { type: 'error'; payload: ErrorInfo };
+  | { type: 'error'; payload: ErrorInfo }
+  // Staging messages (Phase 7.1)
+  | { type: 'element-staged'; payload: StagedElement }
+  | { type: 'element-unstaged'; payload: { id: string } }
+  | { type: 'selections-cleared' };
 
 export type TerminalToBrowser =
   | { type: 'ping' }
   | { type: 'inspect-mode'; enabled: boolean }
   | { type: 'highlight-element'; selector: string }
-  | { type: 'clear-highlight' };
+  | { type: 'clear-highlight' }
+  // Staging messages (Phase 7.1)
+  | { type: 'clear-staged' }
+  | { type: 'highlight-staged'; ids: string[] }
+  | { type: 'set-multi-select'; enabled: boolean };

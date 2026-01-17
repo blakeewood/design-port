@@ -86,7 +86,7 @@ export class StatusLine {
 
     // Inspect mode
     if (this.status.browser === 'connected') {
-      const inspectIcon = this.status.inspectMode ? '🔍' : '⏸';
+      const inspectIcon = this.status.inspectMode ? '◉' : '○';
       parts.push(`${inspectIcon} Inspect: ${this.status.inspectMode ? 'ON' : 'OFF'}`);
     }
 
@@ -110,7 +110,7 @@ export class StatusLine {
     lines.push(`  ${this.getBrowserIcon()} Browser: ${this.formatBrowserStatus()}`);
 
     // Inspect mode
-    const inspectIcon = this.status.inspectMode ? '🔍' : '⏸';
+    const inspectIcon = this.status.inspectMode ? '◉' : '○';
     const inspectStatus = this.status.inspectMode
       ? chalk.green('Active')
       : chalk.gray('Inactive');
@@ -118,18 +118,18 @@ export class StatusLine {
 
     // Framework
     if (this.status.framework) {
-      lines.push(`  📦 Framework: ${this.status.framework}`);
+      lines.push(`  ℹ Framework: ${this.status.framework}`);
     }
 
     // Stats
     if (this.status.elementsInspected) {
-      lines.push(`  📊 Elements Inspected: ${this.status.elementsInspected}`);
+      lines.push(`  ▢ Elements Inspected: ${this.status.elementsInspected}`);
     }
 
     // Uptime
     const uptime = this.getUptime();
     if (uptime) {
-      lines.push(`  ⏱️  Uptime: ${uptime}`);
+      lines.push(`  ◷ Uptime: ${uptime}`);
     }
 
     lines.push('─'.repeat(40));
@@ -186,19 +186,19 @@ export class StatusLine {
 
   private getServerIcon(): string {
     switch (this.status.devServer) {
-      case 'starting': return '🔄';
-      case 'running': return '✅';
-      case 'error': return '❌';
-      default: return '⏹';
+      case 'starting': return '◐';
+      case 'running': return '✓';
+      case 'error': return '✗';
+      default: return '○';
     }
   }
 
   private getBrowserIcon(): string {
     switch (this.status.browser) {
-      case 'launching': return '🔄';
-      case 'connected': return '✅';
-      case 'error': return '❌';
-      default: return '⏹';
+      case 'launching': return '◐';
+      case 'connected': return '✓';
+      case 'error': return '✗';
+      default: return '○';
     }
   }
 
