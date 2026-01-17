@@ -228,7 +228,7 @@ export class StagedSelectionsManager {
 
     // Header
     const countStr = this.selections.length > 0 ? ` (${this.selections.length})` : '';
-    const title = `Staged Selections${countStr}`;
+    const title = `◉ Selected Elements${countStr}`;
     const headerPadding = width - title.length - 4; // 4 for corners and spaces
     const header = `${BOX.topLeft}${BOX.horizontal} ${title} ${BOX.horizontal.repeat(Math.max(0, headerPadding))}${BOX.topRight}`;
     lines.push(chalk.gray(header));
