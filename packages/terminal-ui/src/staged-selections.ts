@@ -18,8 +18,21 @@ export interface StagedSelection {
   tagName: string;
   /** Element dimensions */
   dimensions?: { width: number; height: number };
-  /** Key CSS classes */
+  /** Box model (padding and margin) */
+  boxModel?: {
+    padding: { top: number; right: number; bottom: number; left: number };
+    margin: { top: number; right: number; bottom: number; left: number };
+  };
+  /** Element classes */
   classes?: string[];
+  /** Font information */
+  font?: {
+    family: string;
+    size: string;
+    weight: string;
+  };
+  /** Implicit ARIA role */
+  role?: string;
   /** Source file location */
   sourceLocation?: { file: string; line: number };
   /** When this element was selected */
@@ -172,12 +185,33 @@ export class StagedSelectionsManager {
 
       lines.push(`${index + 1}. ${name}${location}`);
 
+      // Dimensions
       if (sel.dimensions) {
-        lines.push(`   - Size: ${sel.dimensions.width}px x ${sel.dimensions.height}px`);
+        lines.push(`   - Dimensions: ${sel.dimensions.width}px × ${sel.dimensions.height}px`);
       }
 
+      // Box Model
+      if (sel.boxModel) {
+        const { padding, margin } = sel.boxModel;
+        const padStr = this.formatSpacing(padding);
+        const marginStr = this.formatSpacing(margin);
+        lines.push(`   - Box Model: padding ${padStr}, margin ${marginStr}`);
+      }
+
+      // Classes
       if (sel.classes && sel.classes.length > 0) {
-        lines.push(`   - Classes: ${sel.classes.slice(0, 5).join(' ')}`);
+        lines.push(`   - Classes: ${sel.classes.join(' ')}`);
+      }
+
+      // Font
+      if (sel.font) {
+        const weight = sel.font.weight !== '400' ? ` weight-${sel.font.weight}` : '';
+        lines.push(`   - Font: ${sel.font.family} ${sel.font.size}${weight}`);
+      }
+
+      // Role
+      if (sel.role) {
+        lines.push(`   - Role: ${sel.role}`);
       }
 
       lines.push('');
@@ -185,6 +219,26 @@ export class StagedSelectionsManager {
 
     lines.push('---');
     return lines.join('\n');
+  }
+
+  /**
+   * Format spacing values (padding/margin) concisely.
+   */
+  private formatSpacing(spacing: { top: number; right: number; bottom: number; left: number }): string {
+    const { top, right, bottom, left } = spacing;
+
+    // All same
+    if (top === right && right === bottom && bottom === left) {
+      return `${top}px`;
+    }
+
+    // Vertical/horizontal pairs
+    if (top === bottom && left === right) {
+      return `${top}px ${left}px`;
+    }
+
+    // All different
+    return `${top}px ${right}px ${bottom}px ${left}px`;
   }
 
   /**
@@ -196,14 +250,14 @@ export class StagedSelectionsManager {
 
     // Header
     const countStr = this.selections.length > 0 ? ` (${this.selections.length})` : '';
-    const title = `Staged Selections${countStr}`;
+    const title = `Selected Elements${countStr}`;
     const headerPadding = width - title.length - 4; // 4 for corners and spaces
     const header = `${BOX.topLeft}${BOX.horizontal} ${title} ${BOX.horizontal.repeat(Math.max(0, headerPadding))}${BOX.topRight}`;
     lines.push(chalk.gray(header));
 
     if (this.selections.length === 0) {
       // Empty state
-      const emptyMsg = 'Click elements in browser to stage';
+      const emptyMsg = 'Click elements in browser to select';
       const padding = width - emptyMsg.length - 4;
       const leftPad = Math.floor(padding / 2);
       const rightPad = padding - leftPad;

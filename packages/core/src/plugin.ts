@@ -619,8 +619,17 @@ export class DesignPortPlugin {
       if (element.dimensions) {
         selection.dimensions = element.dimensions;
       }
+      if (element.boxModel) {
+        selection.boxModel = element.boxModel;
+      }
       if (element.classes) {
         selection.classes = element.classes;
+      }
+      if (element.font) {
+        selection.font = element.font;
+      }
+      if (element.role) {
+        selection.role = element.role;
       }
       if (element.sourceLocation) {
         selection.sourceLocation = element.sourceLocation;
