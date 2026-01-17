@@ -193,8 +193,9 @@ export class StagedSelectionsManager {
       // Box Model
       if (sel.boxModel) {
         const { padding, margin } = sel.boxModel;
-        lines.push(`   - Padding: top=${padding.top} right=${padding.right} bottom=${padding.bottom} left=${padding.left}`);
-        lines.push(`   - Margin: top=${margin.top} right=${margin.right} bottom=${margin.bottom} left=${margin.left}`);
+        const padStr = this.formatSpacing(padding);
+        const marginStr = this.formatSpacing(margin);
+        lines.push(`   - Box Model: padding ${padStr}, margin ${marginStr}`);
       }
 
       // Classes
@@ -204,7 +205,8 @@ export class StagedSelectionsManager {
 
       // Font
       if (sel.font) {
-        lines.push(`   - Font: ${sel.font.family}, ${sel.font.size}, weight ${sel.font.weight}`);
+        const weight = sel.font.weight !== '400' ? ` weight-${sel.font.weight}` : '';
+        lines.push(`   - Font: ${sel.font.family} ${sel.font.size}${weight}`);
       }
 
       // Role
@@ -220,6 +222,26 @@ export class StagedSelectionsManager {
   }
 
   /**
+   * Format spacing values (padding/margin) concisely.
+   */
+  private formatSpacing(spacing: { top: number; right: number; bottom: number; left: number }): string {
+    const { top, right, bottom, left } = spacing;
+
+    // All same
+    if (top === right && right === bottom && bottom === left) {
+      return `${top}px`;
+    }
+
+    // Vertical/horizontal pairs
+    if (top === bottom && left === right) {
+      return `${top}px ${left}px`;
+    }
+
+    // All different
+    return `${top}px ${right}px ${bottom}px ${left}px`;
+  }
+
+  /**
    * Render the panel to a string.
    */
   renderPanel(): string {
@@ -228,14 +250,14 @@ export class StagedSelectionsManager {
 
     // Header
     const countStr = this.selections.length > 0 ? ` (${this.selections.length})` : '';
-    const title = `◉ Selected Elements${countStr}`;
+    const title = `Selected Elements${countStr}`;
     const headerPadding = width - title.length - 4; // 4 for corners and spaces
     const header = `${BOX.topLeft}${BOX.horizontal} ${title} ${BOX.horizontal.repeat(Math.max(0, headerPadding))}${BOX.topRight}`;
     lines.push(chalk.gray(header));
 
     if (this.selections.length === 0) {
       // Empty state
-      const emptyMsg = 'Click elements in browser to stage';
+      const emptyMsg = 'Click elements in browser to select';
       const padding = width - emptyMsg.length - 4;
       const leftPad = Math.floor(padding / 2);
       const rightPad = padding - leftPad;
