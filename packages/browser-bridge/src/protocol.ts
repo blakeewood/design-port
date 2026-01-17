@@ -68,12 +68,12 @@ export interface StagedElement {
   componentName?: string;
   /** Element dimensions */
   dimensions?: { width: number; height: number };
-  /** Box model (padding and margin) */
+  /** Box model (padding, margin) */
   boxModel?: {
     padding: { top: number; right: number; bottom: number; left: number };
     margin: { top: number; right: number; bottom: number; left: number };
   };
-  /** Element classes */
+  /** All CSS classes */
   classes?: string[];
   /** Font information */
   font?: {
@@ -81,7 +81,7 @@ export interface StagedElement {
     size: string;
     weight: string;
   };
-  /** Implicit ARIA role */
+  /** Accessibility role */
   role?: string;
   /** Source file location */
   sourceLocation?: { file: string; line: number };
