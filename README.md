@@ -4,13 +4,17 @@ Visual design editing for Claude Code: select UI components in a live browser, i
 
 ## How it works
 
-Start DesignPort on your project, and it launches a live browser with your app. Click elements to inspect them: you'll see exact dimensions, box model, computed styles, CSS classes, accessibility roles, and component source locations.
+Start DesignPort on your project, and it launches a live browser with your app running.
 
-Stage multiple elements to compare them. DesignPort formats all that context and sends it to Claude via MCP (Model Context Protocol), so when you ask "fix the button spacing" or "align these inputs," Claude sees exactly what you're looking at—no screenshots needed.
+Click elements to inspect them. Select one or multiple buttons, inputs, cards—anything you want to refine. DesignPort instantly shows you what you're looking at: exact dimensions, spacing, colors, CSS classes, font info, and which file the component lives in.
 
-Ask Claude questions in your terminal. It analyzes your staged selections and suggests code changes. Apply them directly to your files. Change your CSS or component code, and the live browser updates instantly to show your changes.
+All that context goes to Claude. DesignPort formats everything you've selected and sends it to Claude via MCP (Model Context Protocol). When you tell Claude "make the button match the input width" or "add more padding to the card," Claude sees your actual measurements and code—no guessing, no screenshots.
 
-Repeat until your UI looks perfect.
+Ask Claude to refine. Type your design request in the terminal: "tighten the spacing," "align these elements," "use the primary color." Claude analyzes what you've selected and suggests code changes.
+
+Watch it update live. Apply Claude's changes to your code, and the browser refreshes instantly. You see your refinements in real-time.
+
+Keep iterating. Click a different element, ask Claude another question, refine again. Repeat until your UI is exactly how you want it.
 
 ## Installation
 
