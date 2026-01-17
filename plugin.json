@@ -1,0 +1,20 @@
+{
+  "name": "design-port",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for visual UI design with live browser preview",
+  "main": "packages/core/dist/index.js",
+  "type": "plugin",
+  "mcp": {
+    "servers": [
+      {
+        "name": "design-port-mcp",
+        "type": "stdio",
+        "command": "node",
+        "args": ["./packages/mcp-server/dist/index.js"],
+        "env": {
+          "DESIGN_PORT_PROJECT": "${projectPath}"
+        }
+      }
+    ]
+  }
+}

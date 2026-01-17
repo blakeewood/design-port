@@ -35,6 +35,7 @@ import {
   StagedSelectionsManager,
   type StagedSelection,
 } from '@design-port/terminal-ui';
+import { ContextWriter } from './context-writer.js';
 
 export interface PluginState {
   status: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
@@ -70,6 +71,7 @@ export class DesignPortPlugin {
   private formatter: Formatter;
   private statusLine: StatusLine;
   private stagedSelections: StagedSelectionsManager;
+  private contextWriter: ContextWriter | null = null;
 
   // Event handlers
   private eventHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -79,6 +81,7 @@ export class DesignPortPlugin {
     this.formatter = new Formatter({ colors: true });
     this.statusLine = new StatusLine();
     this.stagedSelections = new StagedSelectionsManager();
+    this.contextWriter = new ContextWriter(this.config.projectPath);
   }
 
   /**
@@ -219,6 +222,12 @@ export class DesignPortPlugin {
     if (this.tokenCache) {
       this.tokenCache.stopWatching();
       this.tokenCache = null;
+    }
+
+    // Clear context file
+    if (this.contextWriter) {
+      this.contextWriter.clearContext();
+      this.contextWriter = null;
     }
 
     this.updateState({
@@ -637,18 +646,42 @@ export class DesignPortPlugin {
 
       this.stagedSelections.add(selection);
       this.stagedSelections.writeToTerminal();
+
+      // Write formatted context to temp file for MCP server
+      if (this.contextWriter) {
+        const context = this.stagedSelections.formatContext();
+        this.contextWriter.writeContext(context);
+      }
+
       this.emit('element-staged', element);
     });
 
     this.browserBridge.on('element-unstaged', (id) => {
       this.stagedSelections.remove(id);
       this.stagedSelections.writeToTerminal();
+
+      // Update context in temp file for MCP server
+      if (this.contextWriter) {
+        if (this.stagedSelections.count === 0) {
+          this.contextWriter.clearContext();
+        } else {
+          const context = this.stagedSelections.formatContext();
+          this.contextWriter.writeContext(context);
+        }
+      }
+
       this.emit('element-unstaged', id);
     });
 
     this.browserBridge.on('selections-cleared', () => {
       this.stagedSelections.clear();
       this.stagedSelections.writeToTerminal();
+
+      // Clear context file for MCP server
+      if (this.contextWriter) {
+        this.contextWriter.clearContext();
+      }
+
       this.emit('selections-cleared');
     });
   }
