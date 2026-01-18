@@ -11,6 +11,7 @@ import { InspectorPanel } from './inspector-panel.js';
 import { VisualOverlay } from './visual-overlay.js';
 import { ElementPickerV2 } from './element-picker-v2.js';
 import { WebSocketClient } from './websocket-client.js';
+import { MultiSelectManager } from './multi-select.js';
 
 // Configuration injected at runtime
 declare const __DESIGN_PORT_WS_URL__: string;
@@ -42,13 +43,15 @@ class DesignPortClient {
   private panel: InspectorPanel;
   private overlay: VisualOverlay;
   private picker: ElementPickerV2;
+  private multiSelectManager: MultiSelectManager;
   private initialized = false;
 
   constructor() {
     this.ws = new WebSocketClient(getWebSocketUrl());
     this.panel = new InspectorPanel();
     this.overlay = new VisualOverlay();
-    this.picker = new ElementPickerV2();
+    this.multiSelectManager = new MultiSelectManager();
+    this.picker = new ElementPickerV2(this.multiSelectManager, this.ws);
 
     // Expose WebSocket for element picker to use
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

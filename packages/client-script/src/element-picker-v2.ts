@@ -5,6 +5,8 @@
 
 import { inspectorState, type InspectorState } from './inspector-state.js';
 import { measureElement, type ElementMeasurement } from './measurement.js';
+import { MultiSelectManager } from './multi-select.js';
+import { WebSocketClient } from './websocket-client.js';
 
 /**
  * Element Picker that coordinates with the visual inspector overlay.
@@ -16,16 +18,24 @@ export class ElementPickerV2 {
   // Bound handlers
   private handleMouseMove: (e: MouseEvent) => void;
   private handleClick: (e: MouseEvent) => void;
+  private handleMultiSelectClick: (e: MouseEvent) => void;
 
   // Debounce timer
   private hoverTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly HOVER_DEBOUNCE = 50; // ms
 
-  constructor() {
+  // Multi-select management
+  private multiSelectManager: MultiSelectManager;
+  private ws: WebSocketClient;
+
+  constructor(multiSelectManager: MultiSelectManager, ws: WebSocketClient) {
     this.currentState = inspectorState.getState();
+    this.multiSelectManager = multiSelectManager;
+    this.ws = ws;
 
     this.handleMouseMove = this.onMouseMove.bind(this);
     this.handleClick = this.onClick.bind(this);
+    this.handleMultiSelectClick = this.onMultiSelectClick.bind(this);
   }
 
   /**
@@ -46,6 +56,9 @@ export class ElementPickerV2 {
 
       this.currentState = state;
     });
+
+    // Set up multi-select click listener (always active, separate from pick mode)
+    this.setupMultiSelectListener();
   }
 
   private startListening(): void {
@@ -153,10 +166,73 @@ export class ElementPickerV2 {
   }
 
   /**
+   * Set up multi-select click listener (always active).
+   */
+  private setupMultiSelectListener(): void {
+    document.addEventListener('click', this.handleMultiSelectClick, true);
+  }
+
+  /**
+   * Handle multi-select clicks (separate from pick mode).
+   */
+  private onMultiSelectClick(e: MouseEvent): void {
+    const target = e.target as Element;
+
+    // Skip clicks on blank areas for now (will be handled separately in visual-overlay)
+    if (target === document.body || target === document.documentElement) {
+      return;
+    }
+
+    // Check if Cmd/Ctrl is held for multi-select
+    const isMultiSelect = e.ctrlKey || e.metaKey;
+
+    if (!isMultiSelect) {
+      // Single select mode: clear previous and select new
+      this.multiSelectManager.clear();
+    }
+
+    // Check if element is currently staged before toggling
+    const stagedBefore = this.multiSelectManager.getAll();
+    const removedElement = stagedBefore.find(s => s.element === target);
+
+    // Toggle selection
+    const wasAdded = this.multiSelectManager.toggle(target);
+
+    // Send to terminal
+    this.sendSelectionToTerminal(wasAdded, target, removedElement?.id);
+  }
+
+  /**
+   * Send selection changes to terminal via WebSocket.
+   */
+  private sendSelectionToTerminal(wasAdded: boolean, element: Element, removedElementId?: string): void {
+    if (wasAdded) {
+      // Find the element we just added
+      const staged = this.multiSelectManager.getAll();
+      const stagedElement = staged.find(s => s.element === element);
+      if (stagedElement) {
+        this.ws.send({
+          type: 'element-staged',
+          payload: this.multiSelectManager.toWireFormat(stagedElement),
+        });
+      }
+    } else {
+      // Element was removed
+      if (removedElementId) {
+        this.ws.send({
+          type: 'element-unstaged',
+          payload: { id: removedElementId },
+        });
+      }
+    }
+  }
+
+  /**
    * Clean up.
    */
   destroy(): void {
     this.stopListening();
+    document.removeEventListener('click', this.handleMultiSelectClick, true);
 
     if (this.unsubscribe) {
       this.unsubscribe();
