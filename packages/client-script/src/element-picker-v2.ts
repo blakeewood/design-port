@@ -178,8 +178,11 @@ export class ElementPickerV2 {
   private onMultiSelectClick(e: MouseEvent): void {
     const target = e.target as Element;
 
+    console.log('[DesignPort] Click detected on:', target.tagName, target.className);
+
     // Clicked on blank area (body or html)
     if (target === document.body || target === document.documentElement) {
+      console.log('[DesignPort] Clicked blank area - clearing selections');
       // Clear all selections
       if (this.multiSelectManager.count > 0) {
         this.multiSelectManager.clear();
@@ -193,6 +196,7 @@ export class ElementPickerV2 {
 
     // Check if Cmd/Ctrl is held for multi-select
     const isMultiSelect = e.ctrlKey || e.metaKey;
+    console.log('[DesignPort] Multi-select mode:', isMultiSelect);
 
     if (!isMultiSelect) {
       // Single select mode: clear previous and select new
@@ -205,9 +209,14 @@ export class ElementPickerV2 {
 
     // Toggle selection
     const wasAdded = this.multiSelectManager.toggle(target);
+    console.log('[DesignPort] Toggle result:', { wasAdded, currentCount: this.multiSelectManager.count });
 
     // Send to terminal
     this.sendSelectionToTerminal(wasAdded, target, removedElement?.id);
+
+    // Prevent event from propagating to pick mode handler (if active)
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   /**
@@ -219,14 +228,17 @@ export class ElementPickerV2 {
       const staged = this.multiSelectManager.getAll();
       const stagedElement = staged.find(s => s.element === element);
       if (stagedElement) {
+        const payload = this.multiSelectManager.toWireFormat(stagedElement);
+        console.log('[DesignPort] Element staged:', payload);
         this.ws.send({
           type: 'element-staged',
-          payload: this.multiSelectManager.toWireFormat(stagedElement),
+          payload,
         });
       }
     } else {
       // Element was removed
       if (removedElementId) {
+        console.log('[DesignPort] Element unstaged:', removedElementId);
         this.ws.send({
           type: 'element-unstaged',
           payload: { id: removedElementId },
