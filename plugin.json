@@ -1,9 +1,17 @@
 {
   "name": "design-port",
   "version": "0.1.0",
-  "description": "Claude Code plugin for visual UI design with live browser preview",
-  "main": "packages/core/dist/index.js",
-  "type": "plugin",
+  "description": "Visual UI design inspector that spawns a browser, lets you click elements, and displays measurements, design tokens, and component info in the terminal",
+  "author": {
+    "name": "blakeewood"
+  },
+  "commands": [
+    {
+      "name": "design-port",
+      "description": "Start DesignPort browser inspector for visual UI analysis",
+      "implementation": "./packages/core/dist/cli.js"
+    }
+  ],
   "mcp": {
     "servers": [
       {
