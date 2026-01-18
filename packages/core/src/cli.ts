@@ -171,18 +171,23 @@ async function main() {
   try {
     await plugin.start();
 
-    console.log('  ✓ DesignPort is running');
     console.log('');
-    console.log('  Browser Selection (Figma-like):');
-    console.log('    • Click any element to select it (green outline with number)');
-    console.log('    • Click again to deselect');
-    console.log('    • Cmd/Ctrl+Click to add more elements to selection');
-    console.log('    • Escape or click blank area to clear all selections');
+    console.log('  🎨 DesignPort Inspector Ready');
     console.log('');
-    console.log('  Terminal:');
-    console.log('    • Selected elements show in the "Selected Elements" panel');
-    console.log('    • Use @design-port:selected-elements with Claude');
-    console.log('    • Press Ctrl+C to stop');
+    console.log('  Browser launching at ' + (plugin.getState().devServerUrl || 'http://localhost:5173') + '...');
+    console.log('');
+    console.log('  Quick Start:');
+    console.log('    1. Click any element in your browser to inspect it');
+    console.log('    2. The selected element\'s info appears in the terminal');
+    console.log('    3. Select multiple elements to compare them');
+    console.log('    4. Tell Claude what to change: "Make this button match that input width"');
+    console.log('    5. Claude edits your code → browser updates live → inspect again');
+    console.log('');
+    console.log('  Terminal Commands:');
+    console.log('    📌 Click element in browser → See measurements & tokens');
+    console.log('    🔄 Cmd/Ctrl+Click → Add more elements to selection');
+    console.log('    ⌨️  Escape or click blank → Clear all selections');
+    console.log('    🛑 Ctrl+C → Stop inspector');
     console.log('');
 
   } catch (error) {
