@@ -178,8 +178,16 @@ export class ElementPickerV2 {
   private onMultiSelectClick(e: MouseEvent): void {
     const target = e.target as Element;
 
-    // Skip clicks on blank areas for now (will be handled separately in visual-overlay)
+    // Clicked on blank area (body or html)
     if (target === document.body || target === document.documentElement) {
+      // Clear all selections
+      if (this.multiSelectManager.count > 0) {
+        this.multiSelectManager.clear();
+        this.ws.send({
+          type: 'selections-cleared',
+          payload: {},
+        });
+      }
       return;
     }
 

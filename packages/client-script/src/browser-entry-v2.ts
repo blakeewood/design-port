@@ -49,8 +49,8 @@ class DesignPortClient {
   constructor() {
     this.ws = new WebSocketClient(getWebSocketUrl());
     this.panel = new InspectorPanel();
-    this.overlay = new VisualOverlay();
     this.multiSelectManager = new MultiSelectManager();
+    this.overlay = new VisualOverlay(this.multiSelectManager, this.ws);
     this.picker = new ElementPickerV2(this.multiSelectManager, this.ws);
 
     // Expose WebSocket for element picker to use

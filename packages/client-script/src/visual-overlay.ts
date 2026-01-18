@@ -5,6 +5,8 @@
 
 import { inspectorState, type InspectorState } from './inspector-state.js';
 import type { ElementMeasurement } from './measurement.js';
+import { MultiSelectManager } from './multi-select.js';
+import { WebSocketClient } from './websocket-client.js';
 
 /**
  * CSS styles for the visual overlay (box model visualization).
@@ -278,8 +280,16 @@ export class VisualOverlay {
   private styleElement: HTMLStyleElement | null = null;
   private fabButton: HTMLButtonElement | null = null;
   private unsubscribe: (() => void) | null = null;
+  private multiSelectManager: MultiSelectManager | undefined;
+  private ws: WebSocketClient | undefined;
 
-  constructor() {
+  constructor(multiSelectManager?: MultiSelectManager, ws?: WebSocketClient) {
+    if (multiSelectManager !== undefined) {
+      this.multiSelectManager = multiSelectManager;
+    }
+    if (ws !== undefined) {
+      this.ws = ws;
+    }
     this.render = this.render.bind(this);
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
@@ -327,14 +337,36 @@ export class VisualOverlay {
       inspectorState.togglePickMode();
     }
 
-    // ESC to deselect or exit pick mode
+    // ESC to clear selections, deselect, or exit pick mode
     if (e.key === 'Escape') {
       const state = inspectorState.getState();
+
+      // Check if we have multi-select selections to clear
+      if (this.multiSelectManager && this.multiSelectManager.count > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.multiSelectManager.clear();
+        this.sendClearToTerminal();
+        return;
+      }
+
       if (state.overlayState === 'locked') {
         inspectorState.deselectElement();
       } else if (state.overlayState === 'picking') {
         inspectorState.exitPickMode();
       }
+    }
+  }
+
+  /**
+   * Send clear message to terminal via WebSocket.
+   */
+  private sendClearToTerminal(): void {
+    if (this.ws) {
+      this.ws.send({
+        type: 'selections-cleared',
+        payload: {},
+      });
     }
   }
 
