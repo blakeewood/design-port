@@ -378,13 +378,14 @@ export class MultiSelectManager {
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
-      border: 2px solid #10b981;
-      background: rgba(16, 185, 129, 0.1);
+      border: 3px solid #10b981;
+      background: rgba(16, 185, 129, 0.15);
       left: ${rect.left}px;
       top: ${rect.top}px;
       width: ${rect.width}px;
       height: ${rect.height}px;
       transition: all 0.15s ease;
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.5);
     `;
 
     // Add badge showing selection number
@@ -392,17 +393,21 @@ export class MultiSelectManager {
     const index = Array.from(this.staged.keys()).indexOf(staged.id) + 1;
     badge.style.cssText = `
       position: absolute;
-      top: -10px;
-      left: -10px;
-      width: 20px;
-      height: 20px;
+      top: -12px;
+      left: -12px;
+      width: 24px;
+      height: 24px;
       background: #10b981;
       color: white;
+      border: 2px solid white;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font: bold 11px system-ui, sans-serif;
+      font-weight: bold;
+      font-size: 12px;
+      z-index: 2147483647;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     `;
     badge.textContent = String(index);
     highlight.appendChild(badge);

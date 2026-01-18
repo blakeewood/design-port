@@ -38,17 +38,19 @@ const OVERLAY_STYLES = `
   }
 
   .dp-highlight__content {
-    background: rgba(111, 168, 220, 0.4);
-    border: 2px solid rgba(99, 102, 241, 0.8);
+    background: rgba(111, 168, 220, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.6);
   }
 
   .dp-highlight--hover .dp-highlight__content {
-    border: 2px dashed rgba(99, 102, 241, 0.6);
+    background: rgba(111, 168, 220, 0.05);
+    border: 1px dashed rgba(59, 130, 246, 0.6);
   }
 
   .dp-highlight--locked .dp-highlight__content {
-    border: 2px solid #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    background: rgba(111, 168, 220, 0.15);
+    border: 2px solid #3b82f6;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
   }
 
   .dp-info-badge {
