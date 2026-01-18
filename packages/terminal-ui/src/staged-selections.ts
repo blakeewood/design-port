@@ -326,14 +326,20 @@ export class SelectedElementsManager {
 
   /**
    * Write panel to terminal, updating in place if already rendered.
+   *
+   * In TTY environments (standard terminals): Updates panel in place with ANSI codes
+   * In non-TTY environments (Claude Code): Prints fresh output each time
+   *
+   * The panel will always be visible - just may have repeated output in non-TTY
    */
   writeToTerminal(stream: NodeJS.WriteStream = process.stdout): void {
     if (!stream.isTTY) {
-      // Non-TTY: just print
+      // Non-TTY: just print fresh output (e.g., Claude Code plugin subprocess)
       stream.write(this.renderPanel() + '\n');
       return;
     }
 
+    // TTY: update panel in place using ANSI escape codes
     if (this.isRendered && this.lastPanelHeight > 0) {
       // Move cursor up to overwrite previous panel
       stream.write(`\x1b[${this.lastPanelHeight}A`);
