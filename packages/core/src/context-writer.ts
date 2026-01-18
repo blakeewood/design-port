@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 
 /**
- * ContextWriter handles writing formatted staged selection context to temp files
+ * ContextWriter handles writing formatted selected element context to temp files
  * for use by the MCP server and Claude integration.
  *
  * Uses file-based IPC with project-specific temp files to ensure isolation
@@ -43,7 +43,7 @@ export class ContextWriter {
 
   /**
    * Write formatted context to the temp file
-   * Called whenever staged selections change
+   * Called whenever selected elements change
    *
    * @param formattedContext The pre-formatted context string from formatContext()
    */

@@ -1,11 +1,11 @@
 /**
- * Staged Selections Panel - Dynamic terminal panel for element selections.
+ * Selected Elements Panel - Dynamic terminal panel for element selections.
  * Updates in place using ANSI escape codes without flickering.
  */
 
 import chalk from 'chalk';
 
-export interface StagedSelection {
+export interface SelectedElement {
   /** Unique ID for this selection */
   id: string;
   /** CSS selector for the element */
@@ -39,7 +39,7 @@ export interface StagedSelection {
   timestamp: number;
 }
 
-export interface StagedSelectionsOptions {
+export interface SelectedElementsOptions {
   /** Maximum selections to track (default: 5) */
   maxSelections?: number;
   /** Panel width in characters (default: 50) */
@@ -48,7 +48,7 @@ export interface StagedSelectionsOptions {
   expandThreshold?: number;
 }
 
-type SelectionListener = (selections: StagedSelection[]) => void;
+type SelectionListener = (selections: SelectedElement[]) => void;
 
 const BOX = {
   topLeft: '┌',
@@ -61,14 +61,14 @@ const BOX = {
   teeLeft: '┤',
 };
 
-export class StagedSelectionsManager {
-  private selections: StagedSelection[] = [];
+export class SelectedElementsManager {
+  private selections: SelectedElement[] = [];
   private listeners: Set<SelectionListener> = new Set();
-  private options: Required<StagedSelectionsOptions>;
+  private options: Required<SelectedElementsOptions>;
   private lastPanelHeight: number = 0;
   private isRendered: boolean = false;
 
-  constructor(options: StagedSelectionsOptions = {}) {
+  constructor(options: SelectedElementsOptions = {}) {
     this.options = {
       maxSelections: options.maxSelections ?? 5,
       panelWidth: options.panelWidth ?? 50,
@@ -80,7 +80,7 @@ export class StagedSelectionsManager {
    * Add or toggle a selection.
    * If element with same ID exists, it's removed (toggle behavior).
    */
-  toggle(selection: StagedSelection): boolean {
+  toggle(selection: SelectedElement): boolean {
     const existingIndex = this.selections.findIndex(s => s.id === selection.id);
 
     if (existingIndex >= 0) {
@@ -98,7 +98,7 @@ export class StagedSelectionsManager {
   /**
    * Add a selection to the staged list.
    */
-  add(selection: StagedSelection): void {
+  add(selection: SelectedElement): void {
     // Remove if already exists (by ID)
     this.selections = this.selections.filter(s => s.id !== selection.id);
 
@@ -140,7 +140,7 @@ export class StagedSelectionsManager {
   /**
    * Get all current selections.
    */
-  getSelections(): readonly StagedSelection[] {
+  getSelections(): readonly SelectedElement[] {
     return this.selections;
   }
 
@@ -376,4 +376,4 @@ export class StagedSelectionsManager {
 }
 
 // Singleton instance for easy access
-export const stagedSelections = new StagedSelectionsManager();
+export const stagedSelections = new SelectedElementsManager();

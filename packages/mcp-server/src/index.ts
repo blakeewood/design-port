@@ -73,10 +73,10 @@ async function main() {
     return {
       resources: [
         {
-          uri: "design-port://staged-selections",
-          name: "Staged Selections",
+          uri: "design-port://selected-elements",
+          name: "Selected Elements",
           description:
-            "Currently staged elements in the DesignPort browser with rich context (dimensions, box model, styles, etc.)",
+            "Currently selected elements in the DesignPort browser with rich context (dimensions, box model, styles, etc.)",
           mimeType: "text/plain",
         },
       ],
@@ -89,7 +89,7 @@ async function main() {
     async (request: ReadResourceRequest) => {
       const { uri } = request;
 
-      if (uri === "design-port://staged-selections") {
+      if (uri === "design-port://selected-elements") {
         const projectPath = process.env["DESIGN_PORT_PROJECT"] || "";
         const content = readContextFile(projectPath);
 

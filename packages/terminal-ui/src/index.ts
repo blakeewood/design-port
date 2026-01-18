@@ -15,8 +15,8 @@ export {
 } from './formatter.js';
 export { StatusLine, type PluginStatus } from './status.js';
 export {
-  StagedSelectionsManager,
+  SelectedElementsManager,
   stagedSelections,
-  type StagedSelection,
-  type StagedSelectionsOptions,
+  type SelectedElement,
+  type SelectedElementsOptions,
 } from './staged-selections.js';

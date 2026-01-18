@@ -32,8 +32,8 @@ import { TokenCache } from '@design-port/design-tokens';
 import {
   Formatter,
   StatusLine,
-  StagedSelectionsManager,
-  type StagedSelection,
+  SelectedElementsManager,
+  type SelectedElement,
 } from '@design-port/terminal-ui';
 import { ContextWriter } from './context-writer.js';
 
@@ -70,7 +70,7 @@ export class DesignPortPlugin {
   private tokenCache: TokenCache | null = null;
   private formatter: Formatter;
   private statusLine: StatusLine;
-  private stagedSelections: StagedSelectionsManager;
+  private selectedElements: SelectedElementsManager;
   private contextWriter: ContextWriter | null = null;
 
   // Event handlers
@@ -80,7 +80,7 @@ export class DesignPortPlugin {
     this.config = createConfig(userConfig);
     this.formatter = new Formatter({ colors: true });
     this.statusLine = new StatusLine();
-    this.stagedSelections = new StagedSelectionsManager();
+    this.selectedElements = new SelectedElementsManager();
     this.contextWriter = new ContextWriter(this.config.projectPath);
   }
 
@@ -612,8 +612,8 @@ export class DesignPortPlugin {
 
     // Staging event handlers (Phase 7.1)
     this.browserBridge.on('element-staged', (element) => {
-      // Convert browser StagedElement to terminal StagedSelection
-      const selection: StagedSelection = {
+      // Convert browser StagedElement to terminal SelectedElement
+      const selection: SelectedElement = {
         id: element.id,
         selector: element.selector,
         summary: element.summary,
@@ -644,12 +644,12 @@ export class DesignPortPlugin {
         selection.sourceLocation = element.sourceLocation;
       }
 
-      this.stagedSelections.add(selection);
-      this.stagedSelections.writeToTerminal();
+      this.selectedElements.add(selection);
+      this.selectedElements.writeToTerminal();
 
       // Write formatted context to temp file for MCP server
       if (this.contextWriter) {
-        const context = this.stagedSelections.formatContext();
+        const context = this.selectedElements.formatContext();
         this.contextWriter.writeContext(context);
       }
 
@@ -657,15 +657,15 @@ export class DesignPortPlugin {
     });
 
     this.browserBridge.on('element-unstaged', (id) => {
-      this.stagedSelections.remove(id);
-      this.stagedSelections.writeToTerminal();
+      this.selectedElements.remove(id);
+      this.selectedElements.writeToTerminal();
 
       // Update context in temp file for MCP server
       if (this.contextWriter) {
-        if (this.stagedSelections.count === 0) {
+        if (this.selectedElements.count === 0) {
           this.contextWriter.clearContext();
         } else {
-          const context = this.stagedSelections.formatContext();
+          const context = this.selectedElements.formatContext();
           this.contextWriter.writeContext(context);
         }
       }
@@ -674,8 +674,8 @@ export class DesignPortPlugin {
     });
 
     this.browserBridge.on('selections-cleared', () => {
-      this.stagedSelections.clear();
-      this.stagedSelections.writeToTerminal();
+      this.selectedElements.clear();
+      this.selectedElements.writeToTerminal();
 
       // Clear context file for MCP server
       if (this.contextWriter) {
