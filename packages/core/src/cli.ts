@@ -173,8 +173,16 @@ async function main() {
 
     console.log('  ✓ DesignPort is running');
     console.log('');
-    console.log('  → Click elements in the browser to inspect them');
-    console.log('  → Press Ctrl+C to stop');
+    console.log('  Browser Selection (Figma-like):');
+    console.log('    • Click any element to select it (green outline with number)');
+    console.log('    • Click again to deselect');
+    console.log('    • Cmd/Ctrl+Click to add more elements to selection');
+    console.log('    • Escape or click blank area to clear all selections');
+    console.log('');
+    console.log('  Terminal:');
+    console.log('    • Selected elements show in the "Selected Elements" panel');
+    console.log('    • Use @design-port:selected-elements with Claude');
+    console.log('    • Press Ctrl+C to stop');
     console.log('');
 
   } catch (error) {

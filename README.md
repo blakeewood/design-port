@@ -6,7 +6,7 @@ Visual design editing for Claude Code: select UI components in a live browser, i
 
 **Start DesignPort on your project**, and it launches a live browser with your app running.
 
-**Click elements to inspect them.** Select one or multiple buttons, inputs, cards—anything you want to refine. DesignPort instantly shows you what you're looking at: exact dimensions, spacing, colors, CSS classes, font info, and which file the component lives in.
+**Click elements to select them.** Use intuitive selection: single click to select an element, click again to deselect, Cmd/Ctrl+Click to add more elements to your selection. DesignPort shows Claude Code exactly what you've selected: dimensions, spacing, colors, CSS classes, font info, and which file each component lives in.
 
 **All that context goes to Claude.** DesignPort formats everything you've selected and sends it to Claude via MCP (Model Context Protocol). When you tell Claude "make the button match the input width" or "add more padding to the card," Claude sees your actual measurements and code—no guessing, no screenshots.
 
@@ -71,10 +71,11 @@ A browser window opens with your app loaded. You're in **Inspect Mode**.
 
 ### 2. Select Elements
 
-In the browser:
-- **Click any element** to inspect it (highlighted in the browser)
-- **Shift+Click** to select/deselect an element
-- **Ctrl+K** (or **Cmd+K** on Mac) to clear all selected elements
+In the browser, use Figma-like click-to-select:
+- **Click any element** to select it (shows green outline with number badge)
+- **Click again** to deselect the same element
+- **Cmd+Click** (or **Ctrl+Click** on Windows/Linux) to add multiple elements to your selection
+- **Escape key** or **click blank area** to clear all selections
 
 Selected elements appear in the terminal under "Selected Elements" with:
 - Element name and tag
